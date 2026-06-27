@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://erc-awar.dev/schemas/memory-categories/episodic.schema.json",
+  "title": "MEMORY_EPISODIC content",
+  "description": "An episodic memory belonging to a subject (user/agent) — an event observed at a point in time.",
+  "type": "object",
+  "required": ["event", "occurredAt"],
+  "properties": {
+    "event": { "type": "string", "minLength": 1 },
+    "occurredAt": { "type": "integer", "minimum": 0, "description": "Unix seconds." },
+    "subject": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "participants": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "salience": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "additionalProperties": true
+}

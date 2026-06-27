@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://erc-awar.dev/schemas/memory-categories/text.schema.json",
+  "title": "MEMORY_TEXT content",
+  "description": "Human-readable text memory (e.g. an Awareness knowledge card: decision/insight/solution/workflow, or an episodic note).",
+  "type": "object",
+  "required": ["text"],
+  "properties": {
+    "text": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "lang": { "type": "string" },
+    "cardKind": {
+      "description": "Optional application-layer card kind mapped into MEMORY_TEXT.",
+      "type": "string",
+      "examples": ["decision", "insight", "solution", "workflow", "task"]
+    },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

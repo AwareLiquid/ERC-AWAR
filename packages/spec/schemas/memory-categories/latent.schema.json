@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://erc-awar.dev/schemas/memory-categories/latent.schema.json",
+  "title": "MEMORY_LATENT content",
+  "description": "Latent representation such as LatentMAS latent thoughts / KV-cache slices (last-layer hidden embeddings). The schema commits to enough metadata to reload the tensor correctly.",
+  "type": "object",
+  "required": ["modelFamily", "layer", "tensorShape", "dtype"],
+  "properties": {
+    "modelFamily": { "type": "string", "examples": ["qwen2", "llama3"] },
+    "layer": { "type": "integer", "minimum": 0 },
+    "tensorShape": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "minItems": 1
+    },
+    "dtype": { "enum": ["float32", "float16", "bfloat16", "int8"] },
+    "compression": { "enum": ["none", "zstd", "gzip", "fp8"] },
+    "kind": {
+      "enum": ["latent_thought", "kv_cache", "hidden_state"],
+      "description": "LatentMAS-style latent memory variants."
+    },
+    "tensorUri": { "type": "string" }
+  },
+  "additionalProperties": true
+}

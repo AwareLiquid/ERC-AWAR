@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://erc-awar.dev/schemas/memory-categories/policy.schema.json",
+  "title": "MEMORY_POLICY content",
+  "description": "A policy / rule / preference that constrains future agent behavior.",
+  "type": "object",
+  "required": ["rule"],
+  "properties": {
+    "rule": { "type": "string", "minLength": 1 },
+    "scope": { "type": "string", "examples": ["space", "agent", "tool", "global"] },
+    "effect": { "enum": ["allow", "deny", "require", "prefer"] },
+    "priority": { "type": "integer" },
+    "expiresAt": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": true
+}

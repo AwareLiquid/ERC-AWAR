@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://erc-awar.dev/schemas/memory-categories/tool-trace.schema.json",
+  "title": "MEMORY_TOOL_TRACE content",
+  "description": "A record of tool/function calls made during execution.",
+  "type": "object",
+  "required": ["calls"],
+  "properties": {
+    "calls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": { "type": "string" },
+          "argsHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+          "resultHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+          "status": { "enum": ["ok", "error"] },
+          "ts": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

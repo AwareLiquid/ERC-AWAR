@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://erc-awar.dev/schemas/memory-categories/proof.schema.json",
+  "title": "MEMORY_PROOF content",
+  "description": "A proof-bearing memory: references an inference/verification proof (e.g. ERC-8263 anchor verified via ERC-8274).",
+  "type": "object",
+  "required": ["proofType"],
+  "properties": {
+    "proofType": { "enum": ["zkml", "optimistic", "tee", "oracle", "multisig"] },
+    "inferenceAnchor": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{64}$",
+      "description": "ERC-8263 attestation digest."
+    },
+    "verifier": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{40}$",
+      "description": "ERC-8274 IProofVerifier contract."
+    },
+    "proofUri": { "type": "string" }
+  },
+  "additionalProperties": true
+}

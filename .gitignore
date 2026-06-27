@@ -5,6 +5,12 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# foundry (contracts/)
+contracts/out/
+contracts/cache/
+contracts/lib/
+broadcast/
+
 # logs / env
 *.log
 .env

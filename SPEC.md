@@ -215,7 +215,7 @@ ERC-83xx 直接与现有 AI-Agent ERC 栈组合：
 
 ## 8. Off-chain Storage & Privacy / 离链存储与隐私
 
-- **存储后端**：IPFS（CID = 内容哈希，天然对齐承诺）、EthStorage（长期可用性）、Arweave（永久）。`uri` 使用对应 scheme。
+- **存储后端**：IPFS（CID = 内容哈希，天然对齐承诺）、EthStorage（长期可用性）、Arweave（永久）。`uri` 使用对应 scheme（`ipfs://` / `ethstorage://` / `ar://` / `https://`）。**local-first** 场景（如 Awareness 本地记忆库）使用 `awareness://` 表示载荷驻留在本地授权存储，发布到公共后端时再替换为对应 CID/URI。
 - **加密**：私有记忆采用信封加密；市场授权时随许可分发密钥访问凭证。
 - **承诺即可验证可用性**：`root`/承诺锚定 + 离链 CID 使第三方可独立校验"链上承诺 ↔ 离链数据"一致。
 - 链只作为**承诺层**（provenance、permissions、versioning、accountability）；原始记忆始终加密离链。

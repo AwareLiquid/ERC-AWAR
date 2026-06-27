@@ -46,7 +46,7 @@
     "agent": { "$ref": "#/$defs/address" },
     "uri": {
       "type": "string",
-      "pattern": "^(ipfs|ethstorage|ar|https)://"
+      "pattern": "^(ipfs|ethstorage|ar|https|awareness)://"
     },
     "signature": { "type": "string", "pattern": "^0x[0-9a-fA-F]+$" }
   },

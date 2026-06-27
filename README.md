@@ -12,6 +12,10 @@ A draft EIP/ERC standard for on-chain AI memory: making agent memory **versioned
 - **Verifiable Memory Commitment (VMC)** — 仅将 Merkle 承诺锚定上链（哈希上链、数据离链，参考 IPFS / EthStorage），提供不可篡改与归属证明。
 - **Memory Market** — 个人/组织的 AI 记忆（如 Decision Workflow）作为资产在链上授权、调用、交易。
 
+## 在 Agent 协议栈中的定位 / Positioning
+
+以太坊 AI-Agent 标准正形成模块化协议栈：身份（**ERC-8004**）、执行/账户（**ERC-4337 / ERC-8196**）、有界授权（**ERC-8226**）、推理验证（**ERC-8126 / ERC-8274**）、证明锚定（**ERC-8263 / ERC-8299**）、商业（**ERC-8183**）。缺失的一层是**记忆随时间的演化**——ERC-83xx 正是这一层，复用而非重造上述标准。
+
 ## 设计基础 / Built on
 
 - [Awareness-Market](https://github.com/everest-an/Awareness-Market) — 本地优先 MCP 记忆系统，混合检索，LongMemEval Recall@5 95.6%。

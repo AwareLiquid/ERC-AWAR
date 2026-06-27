@@ -1,365 +1,322 @@
 # Toward ERC-83xx: Agent Experience Delta and Verifiable Memory Commitment
 
-> Project SPEC · Draft v0.2 · 2026-06-27
+> Project SPEC · Draft v0.3 · 2026-06-27
 > Repository: https://github.com/AwareLiquid/ERC-AWAR
-> Status: **Draft / RFC** (pre-EIP, ERC number `83xx` reserved as placeholder)
+> Tentative ERC title: *Agent Experience Delta and Memory Commitment Interface*
+> Status: **Draft / RFC** (pre-EIP, ERC number `83xx` is a placeholder)
 
 ---
 
 ## 0. 摘要 / Abstract
 
+**核心命题 / Thesis**
+
+> Memory is not just what an agent recalls. Memory is **how an agent becomes accountable over time**.
+> ERC-83xx upgrades AI memory from *off-chain storage* to **verifiable state transition**.
+
 **中文**
-AI Agent 已经在以太坊生态中逐步获得**身份**、**支付**与**合约**能力，但仍缺少对其**记忆（Memory）**演化的标准化管理。记忆需要可溯源、可同步、可版本化、不可篡改、可云端协调，并支持单向与多向的推理共享。本标准提出两个核心原语：
-
-1. **Agent Experience Delta（AXD，智能体经验增量）** —— 记忆以"增量/补丁"为单位传递与版本化，类似 Git 的提交 DAG，使多 Agent / 多仓库协作时只同步差异，显著降低 Token 与带宽消耗。
-2. **Verifiable Memory Commitment（VMC，可验证记忆承诺）** —— 仅将记忆状态的**哈希承诺（Merkle 根）**锚定上链（参考 IPFS / EthStorage 的"哈希上链、数据离链"思路），在不暴露与不全量上链原始数据的前提下，提供不可篡改、可归属、可验证的记忆演化证明。
-
-在此之上构建**记忆市场（Memory Market）**，使个人或组织的 AI 记忆（如 Decision Workflow）可作为资产在链上被授权、调用或交易，实现知识产权的传承与变现。
+AI Agent 正在以太坊上获得身份、执行、推理证明、商业等能力，但仍缺少一层：**Agent 的记忆与内部状态如何随时间演化**，以及这种演化如何在**不暴露私有认知内容**的前提下被提交、审计、导出与撤销。本标准把记忆视为**可验证的状态转移**，提出 **Experience Delta（经验增量）**：对一次记忆/状态变更的密码学承诺，记录"前序承诺 + 新内容承诺 + 记忆类型 + schema 哈希 + 推理锚点 + 输入哈希 + 前序 delta + 时间戳 + 版本 + 签名"，形成类似 Git 的记忆演化链。原始记忆加密离链，链上只存承诺、事件、引用与证明。
 
 **English**
-AI agents are gaining on-chain **identity**, **payment**, and **execution** capabilities, yet lack a standard for how their **memory and internal state evolve over time**. Memory must be traceable, synchronizable, versioned, tamper-evident, cloud-coordinated, and shareable for one-way and multi-way reasoning — and that evolution must be committable, auditable, exportable, and revocable **without exposing private cognitive content**. This standard defines two primitives: **Agent Experience Delta (AXD)** — memory exchanged and versioned as content-addressed deltas over a commit DAG — and **Verifiable Memory Commitment (VMC)** — on-chain anchoring of a Merkle commitment over off-chain memory, providing immutability, attribution, and verifiability without publishing raw data. Together they enable a **Memory Market** where agent memory becomes a licensable, callable, tradable asset.
+ERC-83xx defines the missing **memory-evolution layer** of the AI-agent stack. It treats an agent's memory as a **verifiable state transition** rather than passive storage. The central object is the **Experience Delta**: a cryptographic commitment to a change in an agent's memory or internal state, recording the prior memory commitment, the new content commitment, memory type, schema hash, related inference anchor, related input hash, previous delta, timestamp, version, and signature — forming a Git-like chain of memory evolution. Raw memory stays encrypted off-chain; the chain stores only commitments, events, references, and proofs.
 
 ---
 
 ## 1. Positioning in the Agent Stack / 在 Agent 协议栈中的定位
 
-Ethereum's emerging AI-agent standards are rapidly forming a **modular protocol stack** for autonomous systems. Existing and in-progress ERCs already cover identity, execution, bounded authority, inference verification, proof anchoring, and commerce. One critical layer remains underdefined: **how an agent's memory and internal state evolve over time**, and how that evolution can be committed, audited, exported, or revoked **without exposing private cognitive content**. ERC-83xx targets exactly this **memory-evolution layer**.
+Ethereum's emerging AI-agent standards are forming a **modular protocol stack** for autonomous systems. Existing ERC discussions already cover identity, execution, input provenance, inference verification, proof anchoring, memory rights, memory portability, bounded authority, and commerce. One critical layer remains underdefined: **how an agent's memory and internal state evolve over time**, and how that evolution can be committed, audited, exported, or revoked **without exposing private cognitive content**.
 
-### 1.1 The current stack / 现有栈
+### 1.1 The current AI-native Ethereum stack
 
-| Layer | ERC(s) | Role | Answers |
-|---|---|---|---|
-| Identity & reputation | **ERC-8004** Trustless Agents | portable ERC-721 agent identity + reputation/validation registries (live on mainnet 2026-01-29) | *Who is this agent, and is it trusted?* |
-| Execution / account | **ERC-4337** (account abstraction), **ERC-8196** Authenticated Wallet | smart-account execution, session keys | *Can this agent act, and through what account?* |
-| Bounded authority | **ERC-8226** Regulated Agent Mandate | scoped, time-bounded, financially-capped delegation from a verified principal | *What is the agent allowed to do, within what limits?* |
-| Inference verification | **ERC-8126** AI Agent Verification (ZK, risk score 0–100; finalized 2026-06), **ERC-8274** Inference Proof Verification Interfaces | multi-layer / ZK verification of agent & inference | *Is this agent / inference trustworthy?* |
-| Proof anchoring | **ERC-8263** Onchain Proof (inference attestation), **ERC-8299** WYRIWE (input provenance) | anchor digests of inference **output** (8263) and **input** (8299) | *Did this agent actually produce this output, from this input?* |
-| Commerce | **ERC-8183** AI Agent Commerce | agents hire / pay / settle disputes | *How do agents transact?* |
-| **Memory evolution (this proposal)** | **ERC-83xx** (AXD + VMC) | versioned, committed, auditable memory deltas; off-chain content, on-chain commitment | ***How does the agent's memory change over time — and can we trust, share, and own that history?*** |
+| Layer | ERC | Role |
+|---|---|---|
+| Identity | **ERC-8004** | Trustless agent identity / reputation / validation. |
+| Execution | **ERC-8301** | Dispatch tasks to agents + staged callbacks (`AgentTask`, `IAgentCaller`, `IAgentHandler`); workflow committed by hash. |
+| Input Provenance | **ERC-8299 (WYRIWE)** | Triple-hash commitment over *raw input → sanitization pipeline → final model input*; an agent cannot silently rewrite the user's request. |
+| Verification | **ERC-8274** | Minimal `IProofVerifier` interface unifying zkML / optimistic ML / TEE / oracle / multisig backends. |
+| Anchoring | **ERC-8263** | On-chain inference attestation registry: digest of model, prompt hash, output hash, tool calls, metadata, signature. *Did this agent produce this output?* |
+| Memory Rights | **ERC-8264** | AI Agent Memory Access Rights: an address (the memory subject) gets standardized rights to read / write / delete / export — mapping to access, rectification, erasure, portability. |
+| Memory Portability | **ERC-8269** | Body leases & credential brokers: memory exported as encrypted capsules, movable across runtimes / hardware bodies / execution substrates while preserving revocability. |
+| Bounded Authority | **ERC-8312** | Bounded agent actions: tracks how much of a delegated mandate an agent has consumed; separates **authorization** from **metering**. |
+| Commerce / Settlement | **ERC-8183 / ERC-8275** | Agents hire / pay / settle. |
+| **Memory Evolution (this proposal)** | **ERC-83xx** | **How the agent's memory changed — committed, typed, attested, versioned.** |
 
-> ERC 编号以 EIP 流程为准；上表为撰写时（2026-06）公开可见的草案/已定稿状态，可能变动。
+> 编号与状态以 EIP 流程为准；上表依据本提案权威设计文本整理（2026-06）。
 
-### 1.2 The missing layer / 缺失的一层
+### 1.2 The missing bridge / 缺失的桥
 
-ERC-8263 anchors a cryptographic digest of a **single canonical inference payload** — model, prompt hash, output hash, tool calls, metadata, and signature — answering a point-in-time accountability question: *did this specific agent actually produce this output?* ERC-8299 (WYRIWE) complements it by committing to the **input** actually read. But neither captures the **longitudinal** dimension: an agent is not merely a sequence of isolated inferences — it **accumulates, revises, and prunes memory**. Today there is no standard way to:
+There is still a gap between **memory as a user right** and **memory as an agentic state transition**:
 
-- commit to a memory **state** and prove **how it evolved** (lineage / version DAG);
-- **export / import / revoke** memory across agents without leaking private content;
-- **attribute and own** the resulting knowledge as a transferable asset.
+- **ERC-8264** gives the subject control over memory records, but does **not** define the *internal structure* of those records, the *categories* of memory, the *schema* used to interpret them, or *how updates should be attested*.
+- **ERC-8263** can prove an inference happened, but **not** how that inference *changed* an agent's memory.
+- **ERC-8301** standardizes how an agent is invoked, but **not** how the agent *loads, modifies, or persists* memory during execution.
+- **ERC-8299 (WYRIWE)** proves what input was given, but **not** whether that input caused a *durable change* in the agent's future behavior.
 
-ERC-83xx fills this gap. **AXD** gives memory a versioned, content-addressed evolution model (delta commits over a DAG); **VMC** anchors only Merkle commitments on-chain, so the *evolution* is auditable while raw cognition stays private off-chain.
-
-### 1.3 Composition with the stack / 与现有标准的组合
-
-- **Identity (8004):** agent identity signs every AXD commit; the anchor's `agent` field reuses the 8004 identifier.
-- **Proof anchoring (8263 / 8299):** an inference attestation or input-provenance digest can be referenced from an `observation` / `reference` card, linking *what was produced* to *what was remembered*.
-- **Inference verification (8126 / 8274):** a memory space can carry a risk score; consumers may require a minimum trust level before licensing.
-- **Bounded authority (8226):** read / export / revoke rights over a Memory Space can be gated by a scoped, time-bounded mandate.
-- **Commerce (8183):** Memory-Market licensing and settlement reuse the agent-commerce rails rather than redefining payments.
-
-ERC-83xx 刻意只定义"记忆演化"这一层，复用而非重造身份、支付、授权与推理证明。
+ERC-83xx fills this gap.
 
 ---
 
 ## 2. Motivation / 动机
 
-现有 AI 协作的两个核心痛点：
+In conventional RAG systems memory is an application-local database: a user says something, the system stores a summary or embedding, future responses retrieve it. There is **no standard way** to prove *when* the memory changed, *what prior state* it replaced, *what input* caused the change, *what inference* produced it, or *whether the update was authorized*.
 
-1. **上下文管理低效**：多仓库 / 多 Agent 协作中，上下文靠人工复制、论坛轮询、整段重复注入，Token 消耗大、信息割裂、无版本可追。
-2. **记忆资产确权难**：Agent 产出的经验（决策、工作流、解法）无法被可信地归属、引用、复用或交易，缺少不可篡改的行为与演化记录。
+For agents that trade, sign, negotiate, govern, operate tools, or act across protocols, this is insufficient. Memory becomes part of the agent's **operational state**, and state transitions require **commitments**.
 
-技术基础（已验证）：
+实践动机（已验证的技术基础）：
 
-- **Awareness**（https://github.com/everest-an/Awareness-Market）：本地优先的 MCP 记忆服务，采用 Markdown 记忆 + 知识卡片 + 混合检索（BM25/FTS5 + `all-MiniLM-L6-v2` 384 维向量 + RRF）+ 渐进式披露，在 **LongMemEval (ICLR 2025)** 上 **Recall@5 = 95.6%**，并可在 Claude 中节省约一半 Token。
-- **浅空间多智能体（Shallow-space Multi-Agent，参考普林斯顿相关研究）**：以向量空间中的高效沟通与记忆召回替代长文本传递，是 AXD 增量同步的理论支撑。
-
-**目标**：定义一份关于 AI 记忆**版本管理**与**卡片类型**的 EIP/ERC 标准，使记忆可被不可篡改地记录、跨 Agent 共享、并资产化。
+- **Awareness**（https://github.com/everest-an/Awareness-Market）— 本地优先 MCP 记忆服务。知识卡片实际为 `decisions / insights / solutions / workflows`，加 `memories`、`tasks`；混合检索 = SQLite FTS5/BM25 + 嵌入向量 + RRF + 渐进式披露；在 **LongMemEval (ICLR 2025)** 上 **Recall@5 = 95.6%**，在 Claude 中约省一半 Token。Awareness 提供 ERC-83xx 的离链记忆引擎与卡片 schema 参考。
+- **LatentMAS**（论文 *Latent Collaboration in Multi-Agent Systems*, arXiv:2511.20639；代码 https://github.com/Gen-Verse/LatentMAS）— 多 Agent 在**连续潜空间**协作：以 last-layer 隐藏嵌入生成 "latent thoughts"，通过 **shared latent working memory**（实现上是跨 agent 传递的 KV-cache / hidden embeddings）无损交换，训练无关，输出 Token 降低约 70.8%–83.7%、推理快 4–4.3×、准确率最高 +14.6%。这为 `MEMORY_LATENT` / `MEMORY_SHARED_WORKING` 两类记忆与"只传增量"的 Token 节省提供了直接依据。
 
 ---
 
-## 3. Terminology / 术语
+## 3. Core Concept: Memory as a Verifiable State Transition / 记忆即可验证状态转移
 
-| 术语 | 定义 |
+An AI agent's memory should be treated as a **verifiable state transition**, not passive storage. A memory update is:
+
+```
+previous memory state  +  verified input  +  verified inference  +  typed schema
+        ──────────────────────────────────────────────────────────────────►
+                              new committed memory state
+```
+
+This transforms memory from an opaque platform artifact into an **auditable protocol object**. The agent's lifecycle becomes:
+
+```
+input → inference → output → memory delta → future behavior
+```
+
+— the missing link between AI *execution* and AI *agency*.
+
+---
+
+## 4. Experience Delta / 经验增量
+
+An **Experience Delta** is a cryptographic commitment to a change in an agent's memory or internal state. It does **not** store raw memory on-chain.
+
+### 4.1 Delta record / 增量记录字段
+
+| Field | 说明 |
 |---|---|
-| **Memory Card（记忆卡片）** | 记忆的最小类型化单元，内容可寻址（content-addressed），有唯一卡片哈希。 |
-| **Memory Graph（记忆图谱）** | 卡片及其关系构成的分层图（见 §5 八层模型）。 |
-| **AXD / Delta（经验增量）** | 一组对记忆图谱的卡片级操作（add/update/deprecate/link），形成一次"提交"。 |
-| **Commit（提交）** | 一次记忆状态变更，引用父提交，构成 Merkle DAG。 |
-| **VMC / Commitment（记忆承诺）** | 对某一记忆状态计算的 Merkle 根，锚定上链。 |
-| **Anchor（锚点）** | 上链记录的 `(spaceId, commitHash, parent, root, version, uri, agent, sig)` 元组。 |
-| **Memory Space（记忆空间）** | 一个可独立寻址、可授权的记忆命名空间（个人/组织/项目）。 |
-| **Agent Identity（智能体身份）** | 复用现有 ERC 身份标准（ERC-8004 / 账户抽象 ERC-4337）的可签名身份。 |
+| `priorMemoryCommitment` | 前序内容承诺（genesis 为 0）。 |
+| `newContentCommitment` | 新内容承诺（离链 payload 哈希）。 |
+| `memoryType` | 类型化类别（见 §5 的 8 类 `MEMORY_*`）。 |
+| `schemaHash` | 解释该承诺所需的 schema 哈希。 |
+| `inferenceAnchor` | 关联的 **ERC-8263** 推理锚点（可空）。 |
+| `inputHash` | 关联的 **ERC-8299 / WYRIWE** 输入承诺（可空）。 |
+| `previousDelta` | 前序 delta，串成演化链（线性或分支 DAG）。 |
+| `timestamp` | 时间戳。 |
+| `version` | 版本号。 |
+| `signature` | 作者（**ERC-8004** 身份）签名。 |
+
+这创建了一条**记忆演化链**，类似 Git commit history 或状态转移日志：既能证明"发生了什么变更"，又能证明"由哪次可信输入与可信推理引起、替换了哪个前序状态、是否被授权"。
+
+### 4.2 Sync semantics（单向 / 多向）
+
+- **单向（one-way）**：源空间向目标 Agent 推送只读 delta 流（订阅）。
+- **多向（multi-way）**：多 Agent 各自提交 delta，经 `previousDelta` 指针合并与冲突解析收敛。
+- **只传增量**：同步基于 delta 链做差集，避免整段上下文重复注入 —— Token 节省的来源（与 LatentMAS 的潜空间增量传递动机一致）。
 
 ---
 
-## 4. Architecture Overview / 架构总览
+## 5. Typed Memory Categories / 类型化记忆类别
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Agents / IDEs (Claude Code, Cursor, ...)                      │
-│        │  record / recall (MCP)        │  delta sync           │
-├────────┴───────────────────────────────┴──────────────────────┤
-│  AXD Engine        — diff/patch、版本 DAG、向量召回             │
-│  Card & Graph      — 13 类卡片、8 层图谱、规范化序列化         │
-├────────────────────────────────────────────────────────────────┤
-│  VMC Layer         — Merkle 承诺、签名、归属                    │
-├──────────────┬─────────────────────────────────────────────────┤
-│ Off-chain    │  IPFS / EthStorage / Arweave  (全量卡片 + 嵌入)   │
-│ On-chain     │  ERC-83xx Registry (仅锚定哈希 + 元数据 + 市场)   │
-│              │  composes with 8004 / 8263 / 8226 / 8183          │
-└──────────────┴─────────────────────────────────────────────────┘
-```
+Memory is not uniform: a text memory ≠ an embedding ≠ a latent representation; a policy memory ≠ a tool trace; a shared working memory used by multiple agents ≠ a user's episodic memory. ERC-83xx defines **8 canonical on-chain categories**:
 
-设计原则：**数据离链、承诺上链**。链上只承载验证与确权所需的最小信息（哈希、版本、归属、许可），原始记忆与向量存于离链可寻址存储。
+| Category | 含义 / 典型 schema |
+|---|---|
+| `MEMORY_TEXT` | 文本记忆；schema 为 JSON schema。 |
+| `MEMORY_EMBEDDING` | 嵌入向量；schema 指定模型名与向量维度。 |
+| `MEMORY_LATENT` | 潜表示（如 LatentMAS 的隐藏嵌入 / KV-cache 切片）；schema 指定 model family、layer、tensor shape、dtype、compression。 |
+| `MEMORY_TOOL_TRACE` | 工具调用轨迹。 |
+| `MEMORY_EPISODIC` | 归属于用户的情节记忆。 |
+| `MEMORY_POLICY` | 策略 / 规则记忆。 |
+| `MEMORY_SHARED_WORKING` | 多 Agent 共享工作记忆（对应 LatentMAS shared latent working memory）。 |
+| `MEMORY_PROOF` | 证明类记忆（引用推理/验证证明）。 |
 
----
+每个记忆对象携带 `schemaHash`，使离链验证者知道**如何解释承诺**。没有类型化与 schema 承诺，Agent 可能（无意或恶意地）将不兼容的记忆对象当作可互换 —— 这是必须杜绝的。
 
-## 5. Memory Card Schema & Card Types / 卡片模型与类型
-
-### 5.1 Card 规范结构
-
-每张卡片是一个 JSON 对象，使用**确定性规范序列化**（键排序、UTF-8、无多余空白；推荐 JCS / RFC 8785）后计算 `cardHash = keccak256(canonical(card))`。
-
-```jsonc
-{
-  "schema": "erc83xx/card/v0",
-  "type": "decision",            // 见 §5.2，13 种之一
-  "id": "card:<uuid>",           // 稳定逻辑 ID（跨版本不变）
-  "content": { /* 类型相关字段 */ },
-  "embedding": {                 // 可选；为隐私只存承诺
-    "model": "all-MiniLM-L6-v2",
-    "dim": 384,
-    "hash": "0x…"               // 向量本体存离链
-  },
-  "links": [                     // 指向其他卡片/实体的有类型边
-    { "rel": "supersedes", "target": "card:<uuid>" }
-  ],
-  "meta": {
-    "author": "<agent-id>",      // 复用 ERC-8004 身份
-    "createdAt": "2026-06-27T00:00:00Z",
-    "space": "<memorySpaceId>",
-    "tags": ["…"]
-  }
-}
-```
-
-### 5.2 十三种卡片类型 / 13 Card Types
-
-| # | Type | 用途 |
-|---|---|---|
-| 1 | `decision` | 决策及其理由（替代/被替代关系可追溯） |
-| 2 | `solution` | 可复用的解法 / 修复 |
-| 3 | `risk` | 风险、隐患、未知项 |
-| 4 | `workflow` | 决策工作流 / 可执行流程（市场核心资产） |
-| 5 | `fact` | 已验证的领域知识 |
-| 6 | `preference` | 用户/组织/Agent 偏好与约束 |
-| 7 | `reference` | 指向外部系统/资源的指针（可指向 8263/8299 推理证明） |
-| 8 | `task` | 目标 / 待办 / 进展 |
-| 9 | `entity` | 实体节点（人/物/概念/服务） |
-| 10 | `relation` | 实体之间的有类型关系（边） |
-| 11 | `observation` | 原始观测 / 会话事件 / 日志（可锚定推理 attestation） |
-| 12 | `hypothesis` | 待验证的推理假设 |
-| 13 | `reflection` | 元学习 / 经验教训 |
-
-> 类型集合通过注册表的 `cardTypeRegistry` 可治理扩展；自定义类型使用 `x-<vendor>-<name>` 前缀，不占用保留命名空间。
+> **应用层 vs 规范层**：以上 8 类是**链上规范类型**。应用层卡片体系（如 Awareness 的 decisions/insights/solutions/workflows + memories + tasks）映射进这些类别（多为 `MEMORY_TEXT` / `MEMORY_EPISODIC` / `MEMORY_POLICY`）。本 ERC 不固定应用层卡片数量，仅固定 8 类规范类型与 `schemaHash` 机制。
 
 ---
 
-## 6. Memory Graph — Eight Layers / 八层记忆图谱
+## 6. On-chain Registry Interface / 链上注册表接口
 
-| Layer | 名称 | 内容 |
-|---|---|---|
-| L0 | Raw / Event | `observation` 原始事件、日志 |
-| L1 | Entity | 抽取的 `entity` 节点 |
-| L2 | Relation | `relation` 类型化边 |
-| L3 | Semantic / Embedding | 向量索引（语义召回） |
-| L4 | Card | 类型化知识卡片（§5） |
-| L5 | Workflow / Procedure | 由卡片组合的 `workflow` |
-| L6 | Version / Commit | AXD 提交 DAG、归属与签名 |
-| L7 | Commitment / Anchor | Merkle 根与链上锚点（§8） |
-
-召回（recall）按需跨层下钻：L3 向量定位 → L4 卡片 → 经 L6 验证版本 → 经 L7 验证承诺。
-
----
-
-## 7. Agent Experience Delta (AXD) / 经验增量
-
-### 7.1 Delta 与提交
-
-一次 **Delta** 是对记忆图谱的卡片级操作集合：
-
-```jsonc
-{
-  "schema": "erc83xx/delta/v0",
-  "space": "<memorySpaceId>",
-  "parent": "<commitHash | null>",   // 父提交，构成 DAG
-  "ops": [
-    { "op": "add",        "card": { /* §5.1 */ } },
-    { "op": "update",     "cardId": "card:…", "card": { /* 新版本 */ } },
-    { "op": "deprecate",  "cardId": "card:…", "reason": "…" },
-    { "op": "link",       "from": "card:…", "rel": "supersedes", "to": "card:…" }
-  ],
-  "author": "<agent-id>",
-  "createdAt": "2026-06-27T00:00:00Z"
-}
-```
-
-**提交哈希**：`commitHash = keccak256(canonical(delta_without_sig))`，再由作者身份（ERC-8004）签名 `sig`。提交形成 Merkle DAG（支持分支与合并，类似 Git）。
-
-### 7.2 同步语义（单向 / 多向）
-
-- **单向共享（one-way）**：源空间向目标 Agent 推送只读 Delta 流（订阅）。
-- **多向共享（multi-way）**：多 Agent 各自提交 Delta，通过 DAG 合并 + 冲突解析（卡片级 last-writer-wins / 语义合并 / 人审）收敛。
-- **传输只发增量**：同步基于 `parent` 指针做差集，避免全量上下文重复注入 —— 这是 Token 节省的来源。
-
----
-
-## 8. Verifiable Memory Commitment (VMC) / 可验证记忆承诺
-
-### 8.1 承诺构造
-
-1. 收集某次提交可见的全部卡片哈希集合 `{cardHash_i}`。
-2. 排序后构建 Merkle 树，得到 `root`。
-3. `root` 与提交元数据一起锚定上链（§9）。
-
-验证某张卡片属于某记忆状态：提供 `(leaf=cardHash, proof[])`，链上/链下用 `root` 校验 Merkle 证明。
-
-### 8.2 不可篡改与归属
-
-- **不可篡改**：任何对离链卡片的修改都会改变 `cardHash → root`，与链上锚点不符即被发现。
-- **归属**：每次提交由 Agent 身份（ERC-8004）签名；锚点记录 `agent` 地址，形成可审计的行为链。
-- **隐私**：链上只见哈希；敏感记忆可加密后离链存储，仅授权方持密钥解密（§10）。
-- **与推理证明互补**：8263/8299 证明"单次推理可信"，VMC 证明"记忆状态随时间的演化可信"——前者是点，后者是线。
-
----
-
-## 9. On-chain Registry Interface / 链上注册表接口
-
-参考接口（Solidity，草案，最终以 EIP 文本为准）：
+参考接口（Solidity 草案，最终以 EIP 文本为准）：
 
 ```solidity
 interface IERC83xx {
-    // ---- 锚定 / Anchoring ----
-    event MemoryCommitted(
+    enum MemoryType {
+        TEXT, EMBEDDING, LATENT, TOOL_TRACE,
+        EPISODIC, POLICY, SHARED_WORKING, PROOF
+    }
+
+    struct ExperienceDelta {
+        bytes32   spaceId;               // 记忆主体/命名空间 (ERC-8264 subject)
+        bytes32   priorMemoryCommitment; // 前序承诺 (genesis = 0)
+        bytes32   newContentCommitment;  // 新内容承诺 (离链 payload hash)
+        MemoryType memoryType;
+        bytes32   schemaHash;            // 如何解释承诺
+        bytes32   inferenceAnchor;       // ERC-8263 (可空)
+        bytes32   inputHash;             // ERC-8299 / WYRIWE (可空)
+        bytes32   previousDelta;         // 演化链指针
+        uint64    timestamp;
+        uint64    version;
+    }
+
+    event ExperienceCommitted(
         bytes32 indexed spaceId,
-        bytes32 indexed commitHash,
-        bytes32 parent,
-        bytes32 root,
-        address indexed agent,   // ERC-8004 identity
-        uint64  version,
-        string  uri            // 离链存储定位 (ipfs://, ethstorage://, ar://)
+        bytes32 indexed deltaId,
+        bytes32 previousDelta,
+        MemoryType memoryType,
+        address indexed agent,           // ERC-8004 identity
+        string  uri                      // ipfs:// | ethstorage:// | ar://
     );
+    event MemoryRevoked(bytes32 indexed spaceId, bytes32 indexed deltaId, address by);
+    event DeletionProven(bytes32 indexed spaceId, bytes32 indexed deltaId, bytes32 evidence);
 
-    /// 锚定一次记忆提交（仅哈希上链）
-    function commit(
-        bytes32 spaceId,
-        bytes32 commitHash,
-        bytes32 parent,
-        bytes32 root,
-        uint64  version,
+    /// 提交一次经验增量（仅承诺上链）；返回 deltaId = keccak256(canonical(delta))
+    function commitDelta(
+        ExperienceDelta calldata d,
         string calldata uri,
-        bytes  calldata signature
-    ) external;
+        bytes calldata signature
+    ) external returns (bytes32 deltaId);
 
-    /// 读取某空间的最新承诺
+    /// 某空间的最新承诺
     function head(bytes32 spaceId) external view returns (
-        bytes32 commitHash, bytes32 root, uint64 version, string memory uri
+        bytes32 deltaId, bytes32 commitment, uint64 version
     );
 
-    /// 校验某卡片属于某承诺
-    function verify(
-        bytes32 root, bytes32 leaf, bytes32[] calldata proof
-    ) external pure returns (bool);
+    /// 撤销（受 ERC-8264 权利 / ERC-8312 mandate 约束）
+    function revoke(bytes32 spaceId, bytes32 deltaId) external;
 
-    // ---- 市场 / Market（结算可复用 ERC-8183 商业层）----
-    event MemoryListed(bytes32 indexed spaceId, uint256 price, address payToken, uint8 licenseType);
-    event MemoryLicensed(bytes32 indexed spaceId, address indexed licensee, uint64 untilVersion);
-
-    function list(bytes32 spaceId, uint256 price, address payToken, uint8 licenseType) external;
-    function license(bytes32 spaceId) external payable;        // 调用/订阅授权
-    function hasLicense(bytes32 spaceId, address who) external view returns (bool);
+    /// 删除证明：存储系统提交"payload 已移除 / 密钥已轮换或销毁"的密码学证据
+    function proveDeletion(bytes32 spaceId, bytes32 deltaId, bytes calldata evidence) external;
 }
 ```
 
-设计要点：
-- `commit` 为 append-only；链上不存内容，只存 `(commitHash, parent, root, version, uri, agent)`。
-- `license` 与现有 **支付/商业** 能力（ERC-8183、ERC-20）对接，授权可按版本区间或时间订阅。
-- 身份签名校验复用 **ERC-8004 / ERC-4337**，不在本 ERC 内重复定义。
-- 读取/导出/撤销权限可由 **ERC-8226** 有界授权 mandate 约束。
+设计要点：链上 append-only，只存承诺/事件/引用/证明；身份签名复用 **ERC-8004**；不把原始 prompt、私有记忆、嵌入、潜状态写入 calldata。
 
 ---
 
-## 10. Off-chain Storage & Privacy / 离链存储与隐私
+## 7. Composition with the Stack / 与现有标准的组合
 
-- **存储后端**：IPFS（CID 即内容哈希，天然对齐承诺）、EthStorage（长期数据可用性）、Arweave（永久存储）。`uri` 使用对应协议 scheme。
-- **加密**：私有记忆采用信封加密（数据密钥加密内容，授权方公钥包裹数据密钥）；市场授权时随许可分发密钥访问凭证。
-- **承诺即可验证可用性**：`root` 锚定 + 离链 CID 使第三方可独立校验"链上承诺 ↔ 离链数据"一致。
+ERC-83xx 直接与现有 AI-Agent ERC 栈组合：
+
+- **ERC-8263（锚定）**：每个 Experience Delta 可引用 `inferenceAnchor`，证明该记忆更新跟随某次已承诺的推理。
+- **ERC-8299（输入溯源）**：每个 delta 可引用 `inputHash`，证明同一用户/净化后输入是因果链的一部分。
+- **ERC-8301（执行）**：任务执行可要求在特定工作流阶段提交记忆变更。
+- **ERC-8274（验证）**：证明不仅验证模型输出，也可验证**记忆变换**本身。
+- **ERC-8264（记忆权利）**：`writeMemory` / `deleteMemory` 可发出 Experience Delta 事件，而非不透明存储操作。
+- **ERC-8269（可迁移）**：导出的记忆胶囊可包含**有序 delta 链**，使 Agent 跨 body / runtime / chain / 执行基底迁移。
+- **ERC-8312（有界授权）**：记忆写入可作为有界权限的一部分被**计量**，防止失控的记忆增长或未授权的自我修改。
+- **ERC-8004（身份）/ ERC-8183·8275（商业）**：签名归属与市场结算复用既有层。
 
 ---
 
-## 11. Memory Market / 记忆市场
+## 8. Off-chain Storage & Privacy / 离链存储与隐私
 
-- **资产单元**：一个 Memory Space 或其中的 `workflow` / 卡片集合。
+- **存储后端**：IPFS（CID = 内容哈希，天然对齐承诺）、EthStorage（长期可用性）、Arweave（永久）。`uri` 使用对应 scheme。
+- **加密**：私有记忆采用信封加密；市场授权时随许可分发密钥访问凭证。
+- **承诺即可验证可用性**：`root`/承诺锚定 + 离链 CID 使第三方可独立校验"链上承诺 ↔ 离链数据"一致。
+- 链只作为**承诺层**（provenance、permissions、versioning、accountability）；原始记忆始终加密离链。
+
+---
+
+## 9. Compliance & Sovereignty / 合规与主权
+
+用户应能：查看哪些记忆涉及自己、纠正过时记录、撤销访问、导出记忆历史、请求删除（对齐 ERC-8264 的访问/纠正/擦除/可携权）。
+
+但公链上的"删除"本质困难。本标准区分四种语义：
+
+1. **On-chain revocation（链上撤销）**：停止未来访问与新增承诺（`revoke`）。
+2. **Off-chain payload deletion（离链载荷删除）**：从授权存储移除明文。
+3. **Key destruction（密钥销毁/轮换）**：使密文不可再解。
+4. **Optional proof-of-deletion（可选删除证明）**：`proveDeletion` 允许存储系统提交密码学证据，证明某 payload 已从特定授权存储移除、或相关解密密钥已轮换/销毁。
+
+> 删除证明**不**等于"全网普遍删除"，但提供了一个可落地的合规原语。
+
+---
+
+## 10. Memory Market / 记忆市场
+
+- **资产单元**：一个 Memory Space 或其中的 `workflow` / 记忆集合。
 - **授权模式**：一次性调用、版本区间、时间订阅、可转让许可。
-- **结算**：复用 ERC-8183 商业层 / ERC-20 支付；可叠加版税（原作者在二次授权中分成）。
-- **可组合**：被授权的记忆可作为另一 Agent 的输入，形成"记忆 → 推理（可经 8263 证明）→ 新记忆"的链上可追溯传承。
+- **结算**：复用 **ERC-8183 / ERC-8275** 商业层与 ERC-20；可叠加版税。
+- **可组合**：被授权记忆可作为另一 Agent 的输入，形成"记忆 → 推理（8263 可证）→ 新记忆"的链上可追溯传承。
+- **经济可读性（开放）**：记忆更新可被经济化 —— 对有用的记忆形成给予奖励，对损坏/陈旧/未授权的更新施加惩罚（见 §13）。
 
 ---
 
-## 12. Security & Privacy Considerations / 安全与隐私
+## 11. Recursive Experiential Cognition (REC) / 递归经验认知
 
-- **重放与冒充**：提交签名绑定 `(spaceId, commitHash, parent)`，防跨空间重放。
-- **数据可用性**：链上承诺有效不代表离链数据长期可取；建议多后端冗余 + EthStorage 担保。
-- **隐私泄露**：避免在 `tags` / `uri` 中泄露明文；嵌入向量可被反演，敏感空间只存向量承诺。
-- **撤销语义**：撤销（revoke）只能停止未来访问与新增承诺；已分发的明文无法链上回收，须配合加密 + 密钥轮换。
-- **治理风险**：`cardTypeRegistry` 与市场参数需明确治理与升级路径。
+ERC-83xx 连接更宽的研究方向 **REC**。关键问题不是系统是否"有意识"，而是它能否：跨时间保持连续性、观察自身状态变化、整合错误、更新目标、修订记忆、用先验经验约束未来行动。
 
----
+**ERC-83xx 不声称证明 AI 意识；它定义验证"类经验状态转移"的基础设施。** 由此，Agent 从无状态推理端点，变为拥有**可验证适应历史**的系统：
 
-## 13. Related ERCs & Composition / 相关标准与组合
+```
+input → inference → output → memory delta → future behavior
+```
 
-本标准只定义"记忆演化"层，刻意复用而非重造（编号以 EIP 流程为准）：
-
-| ERC | 名称 | 与 ERC-83xx 的关系 |
-|---|---|---|
-| **ERC-8004** | Trustless Agents（身份/声誉/验证） | 提供签名身份；AXD 提交与锚点的 `agent` 字段即 8004 身份。 |
-| **ERC-4337** | Account Abstraction | 智能账户执行与 session key，承载 commit 交易。 |
-| **ERC-8196** | AI Agent Authenticated Wallet | Agent 可认证钱包，签名记忆提交。 |
-| **ERC-8226** | Regulated Agent Mandate（有界授权） | 约束谁可读取/导出/撤销某 Memory Space（scoped/time-bounded/capped）。 |
-| **ERC-8126** | AI Agent Verification（ZK 风险分 0–100） | 记忆空间可携带可信度评分，消费方设最低门槛。 |
-| **ERC-8274** | Inference Proof Verification Interfaces | 推理证明的验证接口，可被 `observation` 卡片引用。 |
-| **ERC-8263** | Onchain Proof（推理输出 attestation） | 证明单次产出；VMC 证明记忆演化——点与线互补。 |
-| **ERC-8299** | WYRIWE（推理输入 provenance） | 证明输入来源；可与记忆中的 `reference` 卡片绑定。 |
-| **ERC-8183** | AI Agent Commerce | 记忆市场的授权结算与争议处理复用其商业层。 |
-| **ERC-721** | NFT（可选） | Memory Space 句柄可选地表示为 ERC-721 以便转让，但承诺与版本以本 ERC 注册表为准。 |
-| 存储 | IPFS / EthStorage / Arweave | 离链内容寻址与可用性。 |
+Agent 可对外暴露高层状态变化指标（version、salience、confidence、policy update、error integration），而无需泄露专有内部表征 —— 即**可验证的自建模（agent self-modeling）**。
 
 ---
 
-## 14. Reference Implementation Plan / 参考实现规划
+## 12. Benefits / 收益
 
-1. **`packages/spec`** — 卡片/Delta JSON Schema、规范化（JCS）与哈希工具。
-2. **`packages/axd-engine`** — Delta diff/patch、提交 DAG、合并与冲突解析；向量召回适配 Awareness。
-3. **`contracts/`** — `ERC83xx` 注册表 + 市场（Foundry/Hardhat，含测试）。
-4. **`packages/mcp-bridge`** — 将 Awareness 的 `record/recall` 映射到 AXD 提交与 VMC 锚定。
-5. **`examples/`** — 多 Agent 单向/多向同步 Demo + 记忆市场授权 Demo。
+1. **Auditability（可审计）**：用户、保险方、监管者、协议不仅能追踪 Agent 产出了什么，还能追踪其内部承诺如何随时间变化。
+2. **Privacy（隐私）**：只有承诺与 schema 哈希公开，原始记忆加密离链。
+3. **Composability（可组合）**：记忆更新可链接到身份、执行、输入溯源、推理证明、记忆权利、胶囊、有界 mandate。
+4. **Agent self-modeling（自建模）**：暴露高层状态变化指标而不泄露内部表示。
+
+> 本质：这不是一个记忆数据库，而是一个**记忆状态转移协议（memory state-transition protocol）**。
 
 ---
 
-## 15. Roadmap / 里程碑
+## 13. Open Design Questions / 待议设计问题
+
+1. 记忆历史应是**线性链**还是允许**分支状态图**？分支可表达替代假设、自我反思、竞争性记忆解释，但增加验证复杂度。
+2. salience / confidence / self-model 指标应**标准化进 ERC-83xx**，还是留给后续 introspection 标准？
+3. 删除证明（proof-of-deletion）应**内置本 ERC**，还是独立成标准？
+4. 跨链记忆 delta 锚定应采用 **CAIP 风格链无关标识符**，还是定义以太坊自有的规范 anchor 格式？
+5. 记忆更新应否**经济可读**（对有用记忆形成奖励、对损坏/陈旧/未授权更新惩罚）？
+6. 应用层卡片体系到 8 类 `MEMORY_*` 的标准映射与一致性校验。
+
+---
+
+## 14. Security Considerations / 安全
+
+- **重放与冒充**：签名绑定 `(spaceId, deltaId, previousDelta)`，防跨空间/跨链重放。
+- **数据可用性**：链上承诺有效 ≠ 离链数据长期可取；建议多后端冗余 + EthStorage 担保。
+- **隐私泄露**：避免在 `uri` / 元数据泄露明文；嵌入/潜向量可被反演，敏感空间只存承诺。
+- **未授权自我修改**：通过 ERC-8312 计量记忆写入，约束失控增长与越权改写。
+- **撤销边界**：已分发明文无法链上回收，须配合加密 + 密钥销毁 + `proveDeletion`。
+
+---
+
+## 15. Reference Implementation Plan / 参考实现规划
+
+1. **`packages/spec`** — Experience Delta / 8 类 MemoryType / schema 的 JSON Schema、规范化（JCS, RFC 8785）、承诺与 deltaId 哈希工具。
+2. **`packages/delta-engine`** — delta diff/patch、演化链（线性 + 分支）、合并与冲突解析；对接 Awareness 的离链记忆与混合检索。
+3. **`contracts/`** — `IERC83xx` 注册表 + 删除证明 + 市场（Foundry/Hardhat，含测试），与 8263/8299/8264/8312 的组合适配器。
+4. **`packages/mcp-bridge`** — 将 Awareness `record/recall` 映射为 `commitDelta` 与承诺锚定；LatentMAS `MEMORY_LATENT` 适配。
+5. **`examples/`** — 多 Agent 单向/多向同步 + 记忆市场授权 + 删除证明 Demo。
+
+---
+
+## 16. Roadmap / 里程碑
 
 | 阶段 | 目标 | 交付 |
 |---|---|---|
 | M0 | 本 SPEC 定稿（RFC） | `SPEC.md` + 术语/接口冻结 |
-| M1 | Schema + 哈希/Merkle 工具 | `packages/spec` |
-| M2 | AXD 引擎 + Awareness 桥接 | 增量同步可跑通 |
-| M3 | 注册表 + 市场合约（测试网） | `contracts/` + 部署脚本 |
+| M1 | Schema + 哈希/承诺工具 | `packages/spec` |
+| M2 | Delta 引擎 + Awareness 桥接 | 增量同步可跑通 |
+| M3 | 注册表 + 删除证明 + 市场（测试网） | `contracts/` + 部署脚本 |
 | M4 | EIP 草案提交 | 正式 EIP/ERC PR（确定 83xx 编号） |
-| M5 | 端到端 Demo + 基准 | Token 节省 / 召回准确率报告 |
+| M5 | 端到端 Demo + 基准 | Token 节省 / 召回准确率 / 组合性报告 |
 
 ---
 
-## 16. Repository Layout / 仓库结构（规划）
+## 17. Repository Layout / 仓库结构（规划）
 
 ```
 ERC-AWAR/
@@ -367,24 +324,24 @@ ERC-AWAR/
 ├── README.md
 ├── eip/                    # EIP 正式草案文本
 ├── packages/
-│   ├── spec/               # schema + 规范化 + 哈希
-│   ├── axd-engine/         # delta / 版本 DAG / 召回
+│   ├── spec/               # schema + 规范化 + 承诺哈希
+│   ├── delta-engine/       # experience delta / 演化链 / 召回
 │   └── mcp-bridge/         # Awareness ↔ ERC-83xx
-├── contracts/              # 注册表 + 市场
-└── examples/               # 多 Agent / 市场 demo
+├── contracts/              # 注册表 + 删除证明 + 市场
+└── examples/               # 多 Agent / 市场 / 删除证明 demo
 ```
 
 ---
 
-## 17. Open Questions / 待议
+## 18. References / 参考
 
-1. 提交 DAG 的合并冲突在卡片级的标准合并语义（自动 vs 人审边界）。
-2. 向量召回结果是否需要可验证性（zkML / 承诺）以支持"可信召回"，并与 ERC-8126 风险分对接。
-3. 市场版税与许可的链上标准化程度（内置 vs 复用 ERC-8183）。
-4. ERC 编号与既有 81xx/82xx Agent 区段的最终对齐（83xx 为占位）。
-5. 跨链记忆空间的寻址与承诺同步。
-6. 撤销（revoke）在"已分发明文不可回收"前提下的可执行边界。
+- **LatentMAS** — *Latent Collaboration in Multi-Agent Systems*, arXiv:2511.20639. Code: https://github.com/Gen-Verse/LatentMAS （潜空间协作、shared latent working memory、token 效率）。
+- **Awareness** — https://github.com/everest-an/Awareness-Market （本地优先 MCP 记忆、混合检索、LongMemEval Recall@5 95.6%）。
+- AI-Agent ERC 栈：ERC-8004 / 8301 / 8299 / 8274 / 8263 / 8264 / 8269 / 8312 / 8183 / 8275（编号据 2026-06 公开草案整理，可能变动）。
+- 设计文本：本提案 *Agent Experience Delta and Memory Commitment Interface* 草案；REC（Recursive Experiential Cognition）研究方向。
 
 ---
 
-*本 SPEC 为草案，欢迎以 Issue / PR 讨论。参考研究：腾讯会议纪要（docs.qq.com，需授权）、Awareness-Market、普林斯顿浅空间多智能体相关工作；ERC 栈编号据 2026-06 公开草案/定稿状态整理，可能变动。*
+*本 SPEC 为草案，欢迎以 Issue / PR 讨论。*
+
+> ERC-8263 proves that an inference happened. ERC-8274 proves it can be verified. ERC-8299 proves what input was processed. ERC-8301 standardizes how the agent was invoked. ERC-8264 gives the subject rights over memory. ERC-8269 makes memory portable across bodies. ERC-8312 meters agent authority. **ERC-83xx proves how the agent's memory changed.** This is the missing primitive.

@@ -39,7 +39,8 @@ ERC-83xx 只定义"记忆演化"层，复用而非重造身份/执行/证明/授
 
 ## 文档 / Docs
 
-📄 **[项目 SPEC](./SPEC.md)** — 完整规范（栈定位、Experience Delta、8 类记忆、链上接口、组合、合规删除、REC、市场、路线图、待议）。
+- 📄 **[EIP-83xx 草案](./eip/eip-83xx.md)** — EIP-1 格式的正式标准草案（英文、CC0）：Abstract / Specification（`IERC83xx` 接口、`ExperienceDelta` 结构、EIP-712 `deltaId`、commit 语义）/ Rationale / Security Considerations。
+- 📄 **[项目 SPEC](./SPEC.md)** — 完整规范（栈定位、Experience Delta、8 类记忆、链上接口、组合、合规删除、REC、市场、路线图、待议）。
 
 ## 状态 / Status
 

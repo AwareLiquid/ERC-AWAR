@@ -137,6 +137,32 @@ contract ERC83xxRegistryTest is Test {
         reg.commitDelta(d, "ipfs://a", sig);
     }
 
+    function test_RevertWhen_GenesisNonzeroPriorCommitment() public {
+        IERC83xx.ExperienceDelta memory d =
+            _delta(bytes32(uint256(0xDEAD)), bytes32(uint256(0xAA)), bytes32(0), 100, 1);
+        bytes memory sig = _sigFor(agentPk, d);
+        vm.expectRevert(ERC83xxRegistry.BadGenesis.selector);
+        reg.commitDelta(d, "ipfs://a", sig);
+    }
+
+    function test_RevertWhen_AppendByOtherAgent() public {
+        // agent owns the space via genesis; a different signer tries to hijack
+        // the chain by extending the publicly visible head.
+        bytes32 id1 =
+            _commit(agentPk, _delta(bytes32(0), bytes32(uint256(0xAA)), bytes32(0), 100, 1), "ipfs://a");
+        IERC83xx.ExperienceDelta memory d2 =
+            _delta(bytes32(uint256(0xAA)), bytes32(uint256(0xBB)), id1, 200, 2);
+        bytes memory sig = _sigFor(otherPk, d2);
+        vm.expectRevert(ERC83xxRegistry.NotSpaceAgent.selector);
+        reg.commitDelta(d2, "ipfs://b", sig);
+
+        // the rightful agent can still extend
+        _commit(agentPk, d2, "ipfs://b");
+        (bytes32 hId,, uint64 hVer) = reg.head(SPACE);
+        assertEq(hId, reg.hashDelta(d2));
+        assertEq(hVer, 2);
+    }
+
     function test_RevertWhen_BadChainLink() public {
         _commit(agentPk, _delta(bytes32(0), bytes32(uint256(0xAA)), bytes32(0), 100, 1), "ipfs://a");
         // wrong previousDelta

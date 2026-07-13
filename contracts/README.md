@@ -23,6 +23,10 @@ Foundry project. Append-only commitment log of Agent **Experience Deltas**
   `hashDelta()`. (Off-chain `@erc-awar/spec` uses JCS/JSON canonicalization for
   its own id; the two serializations serve different layers and are not required
   to be byte-identical.)
+- **Single-writer spaces.** The genesis signer becomes the space's recorded
+  agent; every non-genesis delta must recover to that same agent, otherwise
+  anyone observing the public head could hijack the space (and the market
+  ownership derived from it). Delegation / rotation is a policy extension.
 - **Authorization is intentionally minimal.** `revoke` / `proveDeletion` /
   market `list` are gated on the recorded agent. A production deployment routes
   these through ERC-8264 rights / ERC-8312 mandate modules.
@@ -37,6 +41,7 @@ forge build
 forge test
 ```
 
-23 tests cover genesis/chaining, signature recovery, chain-link & timestamp
-guards, the revoke→proveDeletion compliance ordering, and market
+26 tests cover genesis/chaining, signature recovery, append authorization
+(space-hijack rejection), chain-link & timestamp guards, the
+revoke→proveDeletion compliance ordering, and market
 listing/purchase/royalty/expiry.

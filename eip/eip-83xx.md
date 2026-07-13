@@ -165,13 +165,22 @@ On `commitDelta`:
    address. The signer is the authoring identity; the caller MAY be a relayer.
 2. The registry MUST reject a Delta whose `deltaId` already exists.
 3. For the first Delta in a space (no existing head), the registry MUST require
-   `previousDelta == 0` and `version == 1`.
+   `previousDelta == 0`, `version == 1`, and `priorMemoryCommitment == 0`. The
+   genesis signer becomes the space's recorded agent.
 4. Otherwise, the registry MUST require `previousDelta` to equal the space's
    current head `deltaId` and `version` to equal the current head version plus
    one, and SHOULD require `timestamp` to be greater than or equal to the head
    timestamp.
-5. The registry MUST update the space head to the new Delta and emit
+5. For a non-genesis Delta, the registry MUST require the recovered `agent` to
+   equal the agent recorded for the space's current head Delta. Delegated
+   writers and agent rotation are left to a rights or mandate policy extension.
+6. The registry MUST update the space head to the new Delta and emit
    `ExperienceCommitted`.
+
+Beyond the genesis rule, the registry does not interpret
+`priorMemoryCommitment`: a space MAY contain multiple logical memories, each
+chaining its own prior commitment, so per-memory linkage is validated off-chain
+by replaying the Delta chain.
 
 `uri` is an off-chain locator for the encrypted payload and SHOULD use one of the
 schemes `ipfs://`, `ethstorage://`, `ar://`, or `https://`. The `uri` MUST NOT be
@@ -211,6 +220,14 @@ submissions without losing identity attribution.
 (recompute `deltaId`, check `previousDelta` linkage and monotonic `version`).
 Branching memory graphs are deliberately left to a future extension.
 
+**Single-writer spaces.** Binding every non-genesis Delta to the space's
+recorded agent makes a space a single-writer log. Without this rule, any
+observer of the public head could extend someone else's space with a valid
+signature of their own and thereby claim authorship — and downstream ownership,
+for example in a licensing market keyed on the head Delta's agent. Multi-writer
+and transferable spaces are expressible as a policy extension without changing
+this interface.
+
 **Typed categories.** A small fixed enumeration with per-Delta `schemaHash` lets
 applications map richer taxonomies onto interoperable categories while still
 committing to exactly how each payload is interpreted.
@@ -226,7 +243,8 @@ without changes to this interface.
 
 A reference test suite covers: genesis and chained commits; `deltaId`
 recomputation; EIP-712 signer recovery; rejection of bad genesis parameters,
-broken chain links, non-monotonic timestamps, duplicate deltas, and empty URIs;
+broken chain links, non-monotonic timestamps, duplicate deltas, empty URIs, and
+non-genesis Deltas signed by an agent other than the space's recorded agent;
 and the `revoke` then `proveDeletion` ordering. For example, a genesis commit MUST
 satisfy `previousDelta == 0 && version == 1`, and `head(spaceId)` MUST then return
 the new `deltaId`, its `newContentCommitment`, and `version == 1`. The executable
@@ -252,6 +270,12 @@ A reference implementation is available at
 - **Replay and impersonation.** The EIP-712 domain pins `chainId` and the signed
   struct pins `spaceId` and `previousDelta`; implementations MUST verify all
   three. Signatures MUST be checked for `s`-value malleability.
+- **Append authorization / space hijacking.** Head state is public, so a
+  registry that accepts any well-formed signature on a non-genesis Delta lets
+  an arbitrary third party extend — and effectively take over — someone else's
+  space. Implementations MUST enforce the single-writer rule (commit semantics
+  rule 5) or an equivalent explicit authorization policy before accepting a
+  non-genesis Delta.
 - **Data availability.** A valid on-chain commitment does not guarantee long-term
   retrievability of off-chain data; deployments SHOULD use redundant storage and
   availability guarantees.

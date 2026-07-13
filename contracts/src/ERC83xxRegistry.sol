@@ -16,6 +16,7 @@ contract ERC83xxRegistry is IERC83xx {
     error EmptyUri();
     error DeltaAlreadyExists();
     error BadGenesis();
+    error NotSpaceAgent();
     error BadChainLink();
     error NonMonotonicTimestamp();
     error UnknownDelta();
@@ -82,12 +83,20 @@ contract ERC83xxRegistry is IERC83xx {
 
         Head storage h = _heads[d.spaceId];
         if (h.version == 0) {
-            // genesis: no prior delta, version starts at 1
-            if (d.previousDelta != bytes32(0) || d.version != 1) revert BadGenesis();
+            // genesis: no prior delta, no prior commitment, version starts at 1
+            if (d.previousDelta != bytes32(0) || d.version != 1 || d.priorMemoryCommitment != bytes32(0)) {
+                revert BadGenesis();
+            }
         } else {
             // linear append-only chain
             if (d.previousDelta != h.deltaId || d.version != h.version + 1) revert BadChainLink();
             if (d.timestamp < h.timestamp) revert NonMonotonicTimestamp();
+            // append authorization: only the space's recorded agent may extend
+            // the chain. Without this, anyone observing the public head could
+            // hijack the space (and its market ownership) with a valid
+            // signature of their own. Delegation / agent rotation is left to
+            // an ERC-8264 rights / ERC-8312 mandate policy extension.
+            if (agent != _deltas[h.deltaId].agent) revert NotSpaceAgent();
         }
 
         _deltas[deltaId] = DeltaRecord({

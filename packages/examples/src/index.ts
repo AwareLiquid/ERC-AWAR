@@ -13,7 +13,7 @@ export function main(): void {
 
   log("\n=== 1. Awareness lifecycle (cards -> bridge -> delta chain -> capsule) ===");
   const life = runAwarenessLifecycle(log);
-  log(`capsule: ${life.capsule.length} deltas, head v${life.version}, byType=${JSON.stringify(life.byType)}`);
+  log(`capsule: ${life.capsule.length} deltas, sequence ${life.sequence}, byProfile=${JSON.stringify(life.byProfile)}`);
 
   log("\n=== 2. Multi-agent concurrent merge (last-writer-wins) ===");
   runMultiAgentMerge(log);

@@ -1,0 +1,23 @@
+{
+  "name": "@erc-awar/minimal-independent",
+  "version": "1.0.0-alpha.1",
+  "description": "Dependency-isolated implementation used to verify Agent Memory State golden vectors.",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  }
+}

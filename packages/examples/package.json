@@ -1,7 +1,7 @@
 {
   "name": "@erc-awar/examples",
-  "version": "0.1.0",
-  "description": "End-to-end ERC-83xx demos and a delta-engine benchmark.",
+  "version": "1.0.0-alpha.1",
+  "description": "Agent Memory State v1 examples and adapter benchmark.",
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
@@ -12,13 +12,13 @@
     "demo": "node dist/index.js"
   },
   "dependencies": {
-    "@erc-awar/spec": "*",
-    "@erc-awar/delta-engine": "*",
-    "@erc-awar/mcp-bridge": "*"
+    "@erc-awar/core": "workspace:*",
+    "@erc-awar/reference-engine": "workspace:*",
+    "@erc-awar/awareness-adapter": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
+    "vitest": "^4.1.10",
     "@types/node": "^22"
   }
 }

@@ -1,33 +1,30 @@
-import { DeltaChain } from "@erc-awar/delta-engine";
-import { schemaHashFor } from "@erc-awar/mcp-bridge";
+import { MemoryStateMachine } from "@erc-awar/reference-engine";
+import { profileIdFor } from "@erc-awar/awareness-adapter";
 import { type Log, noop } from "./log.js";
 
 const SPACE = "0x" + "33".repeat(32);
-const AGENT = "0x" + "a1".repeat(20);
-
 export interface BenchmarkResult {
   count: number;
   ms: number;
   deltasPerSec: number;
   /** Average off-chain payload size committed per delta (UTF-8 bytes). */
   avgPayloadBytes: number;
-  /** On-chain footprint per memory: a single 32-byte commitment, regardless of payload. */
+  /** Fixed ABI payload of the seven-field public Delta, excluding transaction overhead. */
   onchainBytesPerDelta: number;
   /** Off-chain payload bytes / on-chain commitment bytes. */
   compressionRatio: number;
 }
 
 /**
- * Measures Experience-Delta commit throughput and the core economic property of
- * ERC-83xx: the on-chain footprint of a memory is a fixed 32-byte commitment,
- * independent of how large the off-chain payload is (SPEC §6, §12). This is a
- * structural measurement (no model inference involved), so it is deterministic.
+ * Measures local construction throughput and compares private payload size with
+ * the seven fixed ABI words in ExperienceDelta v1. It excludes transaction and
+ * event overhead and does not involve model inference.
  */
 export function runBenchmark(count = 1000, log: Log = noop): BenchmarkResult {
   // A representative knowledge-card payload (~0.5 KB of text).
   const body = "Hybrid retrieval fuses BM25 with dense vectors via RRF. ".repeat(10);
 
-  const chain = new DeltaChain(SPACE, AGENT);
+  const chain = new MemoryStateMachine(SPACE);
   let payloadBytes = 0;
 
   const start = performance.now();
@@ -35,18 +32,17 @@ export function runBenchmark(count = 1000, log: Log = noop): BenchmarkResult {
     const content = { text: `${body} #${i}`, cardKind: "insight", tags: ["bench"] };
     payloadBytes += Buffer.byteLength(JSON.stringify(content), "utf8");
     chain.commit({
-      id: `card-${i}`,
-      memoryType: "TEXT",
-      content,
-      schemaHash: schemaHashFor("TEXT"),
-      uri: `awareness://card/${i}`,
-      timestamp: 1_700_000_000 + i,
+      payload: { op: "upsert", resourceId: `card-${i}`, content },
+      profileId: profileIdFor("TEXT"),
+      locator: `awareness://card/${i}`,
     });
   }
   const ms = performance.now() - start;
 
   const avgPayloadBytes = payloadBytes / count;
-  const onchainBytesPerDelta = 32; // newContentCommitment
+  // Seven static ABI words in ExperienceDelta v1. Transaction and event overhead
+  // are deployment-specific and intentionally excluded from this structural figure.
+  const onchainBytesPerDelta = 7 * 32;
   const result: BenchmarkResult = {
     count,
     ms,
@@ -58,7 +54,8 @@ export function runBenchmark(count = 1000, log: Log = noop): BenchmarkResult {
 
   log(
     `committed ${count} deltas in ${ms.toFixed(1)}ms (${result.deltasPerSec}/s); ` +
-      `avg payload ${result.avgPayloadBytes}B -> on-chain 32B (${result.compressionRatio}x)`,
+      `avg payload ${result.avgPayloadBytes}B -> public Delta ${onchainBytesPerDelta}B ` +
+      `(${result.compressionRatio}x)`,
   );
   return result;
 }

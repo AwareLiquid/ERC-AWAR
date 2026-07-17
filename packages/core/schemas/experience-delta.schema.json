@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-memory-state.dev/schemas/experience-delta-v1.schema.json",
+  "title": "Agent Memory State ExperienceDelta v1",
+  "description": "Lossless JSON mapping of the seven-field EIP-712 ExperienceDelta v1 struct.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spaceId",
+    "sequence",
+    "prevStateRoot",
+    "deltaCommitment",
+    "provenanceCommitment",
+    "profileId",
+    "locatorCommitment"
+  ],
+  "properties": {
+    "spaceId": { "$ref": "#/$defs/bytes32" },
+    "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
+    "prevStateRoot": { "$ref": "#/$defs/bytes32" },
+    "deltaCommitment": { "$ref": "#/$defs/bytes32" },
+    "provenanceCommitment": { "$ref": "#/$defs/bytes32" },
+    "profileId": { "$ref": "#/$defs/bytes32" },
+    "locatorCommitment": { "$ref": "#/$defs/bytes32" }
+  },
+  "$defs": {
+    "bytes32": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{64}$"
+    }
+  }
+}

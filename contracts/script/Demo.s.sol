@@ -3,81 +3,65 @@ pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ERC83xxRegistry} from "../src/ERC83xxRegistry.sol";
-import {IERC83xx} from "../src/IERC83xx.sol";
-import {MemoryMarket, IMemoryRegistry} from "../src/MemoryMarket.sol";
+import {AgentMemoryStateRegistry} from "../src/reference/AgentMemoryStateRegistry.sol";
+import {IAgentMemoryState} from "../src/interfaces/IAgentMemoryState.sol";
+import {DeletionAttestation} from "../src/extensions/DeletionAttestation.sol";
+import {ExperimentalMemoryMarket} from "../src/experimental/MemoryMarket.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
 
-/// @title Demo — on-chain end-to-end lifecycle of an ERC-83xx memory space.
-/// @notice Walks: commit genesis -> chain a second delta -> list on the market
-///         -> buyer purchases a license -> compliance revoke -> proveDeletion.
-///         Run with: `forge script script/Demo.s.sol -vv`
+/// @notice Non-production walkthrough of core, extension, and experimental layers.
 contract Demo is Script {
-    uint256 internal constant AGENT_PK = 0xA11CE;
-    bytes32 internal constant SPACE = bytes32(uint256(0x83C));
-    bytes32 internal constant SCHEMA = bytes32(uint256(0x5C));
+    uint256 internal constant CONTROLLER_PK = 0xA11CE;
+    bytes32 internal constant SPACE_SALT = keccak256("demo-space");
 
     function run() external {
-        ERC83xxRegistry reg = new ERC83xxRegistry();
-        MemoryMarket market = new MemoryMarket(IMemoryRegistry(address(reg)));
+        AgentMemoryStateRegistry registry = new AgentMemoryStateRegistry();
+        DeletionAttestation deletion = new DeletionAttestation(IAgentMemoryState(address(registry)));
+        ExperimentalMemoryMarket market =
+            new ExperimentalMemoryMarket(IAgentMemoryState(address(registry)));
         MockERC20 token = new MockERC20();
-        address agent = vm.addr(AGENT_PK);
+        address controller = vm.addr(CONTROLLER_PK);
         address buyer = address(0xB0B);
+        bytes32 spaceId = registry.deriveSpaceId(controller, SPACE_SALT);
 
-        // 1) Genesis Experience Delta (commitment only; payload stays off-chain).
-        bytes32 id1 = _commit(reg, bytes32(0), bytes32(uint256(0xAA)), bytes32(0), 100, 1);
-        console.log("1) genesis committed; agent recovered =", reg.deltaAgent(id1));
+        vm.prank(controller);
+        registry.registerSpace(spaceId, controller, controller, SPACE_SALT, "");
 
-        // 2) Chain a second delta onto the same space.
-        bytes32 id2 = _commit(reg, bytes32(uint256(0xAA)), bytes32(uint256(0xBB)), id1, 200, 2);
-        (, , uint64 ver) = reg.head(SPACE);
-        console.log("2) chained delta; head version =", ver);
+        vm.prank(controller);
+        (bytes32 firstId, bytes32 firstRoot) =
+            registry.commitTransition(_delta(spaceId, 1, bytes32(0), 0xAA), "");
+        vm.prank(controller);
+        (bytes32 secondId,) = registry.commitTransition(_delta(spaceId, 2, firstRoot, 0xBB), "");
+        console.log("core sequence committed", uint256(2));
 
-        // 3) Owner (head delta's agent) lists the space for licensing.
-        vm.prank(agent);
-        market.list(SPACE, address(token), 1000, 30 days, 1000 /*10%*/, address(0xF00D));
-        console.log("3) listed space: price 1000, 30d, 10% royalty");
-
-        // 4) Buyer purchases a time-bounded license (ERC-20 settlement).
+        vm.prank(controller);
+        market.list(spaceId, address(token), 1000, 30 days, 0, address(0));
         token.mint(buyer, 1000);
         vm.prank(buyer);
         token.approve(address(market), type(uint256).max);
         vm.prank(buyer);
-        uint64 expiry = market.purchase(SPACE);
-        console.log("4) license purchased; expiry =", expiry);
-        console.log("   royalty recipient balance =", token.balanceOf(address(0xF00D)));
-        console.log("   seller balance            =", token.balanceOf(agent));
+        market.purchase(spaceId);
+        console.log("experimental license purchased");
 
-        // 5) Compliance flow: revoke on-chain, then prove off-chain deletion.
-        vm.prank(agent);
-        reg.revoke(SPACE, id2);
-        vm.prank(agent);
-        reg.proveDeletion(SPACE, id2, hex"deadbeef");
-        console.log("5) revoked =", reg.isRevoked(id2), "| deletion proven =", reg.isDeletionProven(id2));
+        vm.prank(controller);
+        deletion.attest(spaceId, secondId, hex"deadbeef");
+        console.log("deletion evidence committed");
+        assert(firstId != secondId);
     }
 
-    function _commit(
-        ERC83xxRegistry reg,
-        bytes32 prior,
-        bytes32 newCommit,
-        bytes32 prevDelta,
-        uint64 ts,
-        uint64 ver
-    ) internal returns (bytes32 deltaId) {
-        IERC83xx.ExperienceDelta memory d = IERC83xx.ExperienceDelta({
-            spaceId: SPACE,
-            priorMemoryCommitment: prior,
-            newContentCommitment: newCommit,
-            memoryType: IERC83xx.MemoryType.TEXT,
-            schemaHash: SCHEMA,
-            inferenceAnchor: bytes32(0),
-            inputHash: bytes32(0),
-            previousDelta: prevDelta,
-            timestamp: ts,
-            version: ver
+    function _delta(bytes32 spaceId, uint64 sequence, bytes32 prevStateRoot, uint256 marker)
+        internal
+        pure
+        returns (IAgentMemoryState.ExperienceDelta memory)
+    {
+        return IAgentMemoryState.ExperienceDelta({
+            spaceId: spaceId,
+            sequence: sequence,
+            prevStateRoot: prevStateRoot,
+            deltaCommitment: bytes32(marker),
+            provenanceCommitment: bytes32(0),
+            profileId: keccak256("demo-profile"),
+            locatorCommitment: keccak256(abi.encode("private-locator", marker))
         });
-        deltaId = reg.hashDelta(d);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_PK, reg.digest(deltaId));
-        reg.commitDelta(d, "ipfs://demo", abi.encodePacked(r, s, v));
     }
 }

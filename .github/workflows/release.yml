@@ -1,0 +1,45 @@
+name: Release candidate
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - name: Install forge-std
+        if: hashFiles('contracts/lib/forge-std/src/Test.sol') == ''
+        run: cd contracts && forge install foundry-rs/forge-std@v1.16.2 --no-git
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:check
+      - run: mkdir -p release-artifacts
+      - run: pnpm --dir packages/core pack --pack-destination ../../release-artifacts
+      - run: pnpm --dir packages/reference-engine pack --pack-destination ../../release-artifacts
+      - run: pnpm --dir packages/awareness-adapter pack --pack-destination ../../release-artifacts
+      - name: Package contract sources
+        run: >-
+          tar -czf release-artifacts/agent-memory-state-contracts.tar.gz
+          contracts/src contracts/foundry.toml contracts/remappings.txt
+      - name: Generate checksums
+        run: cd release-artifacts && sha256sum * > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erc-awar-${{ github.run_id }}
+          path: release-artifacts/
+          if-no-files-found: error

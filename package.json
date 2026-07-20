@@ -1,15 +1,26 @@
 {
   "name": "erc-awar",
-  "version": "0.0.0",
+  "version": "1.0.0-alpha.1",
   "private": true,
-  "description": "ERC-83xx: Agent Experience Delta and Verifiable Memory Commitment — monorepo.",
+  "packageManager": "pnpm@11.7.0",
+  "description": "Reference implementation and adapters for Agent Memory State ExperienceDelta v1.",
   "license": "Apache-2.0",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "implementations/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "clean": "rm -rf packages/*/dist implementations/*/dist contracts/out contracts/cache",
+    "build": "pnpm --filter @erc-awar/core build && pnpm --filter @erc-awar/reference-engine build && pnpm --filter @erc-awar/awareness-adapter build && pnpm --filter @erc-awar/minimal-independent build && pnpm --filter @erc-awar/examples build",
+    "typecheck": "pnpm build && pnpm -r --if-present typecheck",
+    "test:ts": "pnpm build && pnpm -r --if-present test",
+    "test:contracts": "cd contracts && forge test",
+    "test": "pnpm test:ts && pnpm test:contracts",
+    "check": "pnpm clean && pnpm build && pnpm -r --if-present typecheck && pnpm -r --if-present test && pnpm test:contracts",
+    "audit": "pnpm audit --audit-level=moderate",
+    "release:check": "pnpm check && pnpm audit --audit-level=moderate"
+  },
+  "devDependencies": {
+    "vite": "8.1.4"
   }
 }

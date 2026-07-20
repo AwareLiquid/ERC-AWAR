@@ -1,0 +1,30 @@
+{
+  "name": "@erc-awar/awareness-adapter",
+  "version": "1.0.0-alpha.1",
+  "description": "Awareness product adapter for Agent Memory State v1.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "schemas"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@erc-awar/core": "workspace:*",
+    "@erc-awar/reference-engine": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10",
+    "@types/node": "^22"
+  }
+}

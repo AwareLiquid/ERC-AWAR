@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+  - "implementations/*"
+
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

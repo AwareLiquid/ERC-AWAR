@@ -10,6 +10,7 @@ contracts/out/
 contracts/cache/
 contracts/lib/
 broadcast/
+release-artifacts/
 
 # logs / env
 *.log

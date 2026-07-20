@@ -1,5 +1,5 @@
-import { type Change, type Conflict, DeltaChain, mergeChanges } from "@erc-awar/delta-engine";
-import { schemaHashFor } from "@erc-awar/mcp-bridge";
+import { type Change, type Conflict, MemoryStateMachine, mergeChanges } from "@erc-awar/reference-engine";
+import { profileIdFor } from "@erc-awar/awareness-adapter";
 import { type Log, noop } from "./log.js";
 
 const SPACE = "0x" + "22".repeat(32);
@@ -41,29 +41,26 @@ export function runMultiAgentMerge(log: Log = noop): MergeDemoResult {
   }
 
   // Commit the resolved state into a single shared evolution chain.
-  const chain = new DeltaChain(SPACE, AGENT_A);
+  const chain = new MemoryStateMachine(SPACE);
   for (const change of merged) {
     if (change.op === "deprecate") continue;
     chain.commit({
-      id: change.id,
-      memoryType: "TEXT",
-      content: change.content,
-      schemaHash: schemaHashFor("TEXT"),
-      uri: `awareness://card/${change.id}`,
-      timestamp: 100,
+      payload: { op: change.op, resourceId: change.id, content: change.content },
+      profileId: profileIdFor("TEXT"),
+      locator: `awareness://card/${change.id}`,
     });
   }
 
   const winners: Record<string, string> = {};
   for (const c of conflicts) winners[c.id] = c.winner === "a" ? c.a.agent : c.b.agent;
 
-  log(`merged ${merged.length} memories; chain head=${chain.head.slice(0, 10)}… v${chain.version}`);
+  log(`merged ${merged.length} memories; state=${chain.stateRoot.slice(0, 10)} sequence=${chain.sequence}`);
 
   return {
     conflicts,
     mergedIds: merged.map((m) => m.id),
     winners,
-    head: chain.head,
-    version: chain.version,
+    head: chain.stateRoot,
+    version: Number(chain.sequence),
   };
 }

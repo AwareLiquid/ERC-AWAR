@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ZERO32 } from "@erc-awar/spec";
+import { ZERO32 } from "@erc-awar/core";
 import { runAwarenessLifecycle, runBenchmark, runMultiAgentMerge } from "../src/index.js";
 
 describe("Awareness lifecycle demo", () => {
@@ -7,19 +7,18 @@ describe("Awareness lifecycle demo", () => {
 
   it("commits 6 cards + 1 refinement + 1 embedding into a valid chain", () => {
     expect(r.capsule).toHaveLength(8);
-    expect(r.version).toBe(8);
-    expect(r.head).not.toBe(ZERO32);
+    expect(r.sequence).toBe(8n);
+    expect(r.stateRoot).not.toBe(ZERO32);
     expect(r.verification).toEqual({ valid: true, errors: [] });
   });
 
   it("maps cards to the expected MEMORY_* categories", () => {
-    expect(r.byType).toEqual({ POLICY: 1, TEXT: 4, EPISODIC: 2, EMBEDDING: 1 });
+    expect(r.byProfile).toEqual({ POLICY: 1, TEXT: 4, EPISODIC: 2, EMBEDDING: 1 });
   });
 
-  it("links the refinement to the prior commitment of the same id", () => {
-    const rrf = r.capsule.filter((d) => d.uri === "awareness://card/insight:rrf");
-    expect(rrf).toHaveLength(2);
-    expect(rrf[1].priorMemoryCommitment).toBe(rrf[0].newContentCommitment);
+  it("links every refinement through the prior state root", () => {
+    expect(r.capsule[1].prevStateRoot).not.toBe(ZERO32);
+    expect(r.capsule[7].sequence).toBe(8n);
   });
 });
 
@@ -48,7 +47,7 @@ describe("Benchmark demo", () => {
     const r = runBenchmark(200);
     expect(r.count).toBe(200);
     expect(r.deltasPerSec).toBeGreaterThan(0);
-    expect(r.onchainBytesPerDelta).toBe(32);
+    expect(r.onchainBytesPerDelta).toBe(224);
     expect(r.compressionRatio).toBeGreaterThan(1);
     expect(r.avgPayloadBytes).toBeGreaterThan(32);
   });

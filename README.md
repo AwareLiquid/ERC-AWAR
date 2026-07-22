@@ -50,6 +50,10 @@ prevStateRoot + ExperienceDelta v1
 
 ## 关键文档
 
+- `docs/whitepaper.md`: Agent Memory State 白皮书（英文，ERC 配套叙事文档，含 Open Questions，参考以太坊白皮书格式）
+- `docs/whitepaper.zh.md`: 白皮书中文版
+- `docs/whitepaper.pdf`: 白皮书 PDF（英文，可下载 / 打印）
+- `docs/whitepaper.html`: 白皮书网页版（离线单文件，双主题）
 - `SPEC.md`: v1 仓库规范与 conformance 条件
 - `erc/erc-xxxx-agent-memory-state.md`: 按 ERC 模板重写的英文草案
 - `docs/architecture.md`: 架构、边界与迁移方案

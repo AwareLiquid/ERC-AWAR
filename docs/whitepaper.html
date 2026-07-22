@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Memory State — Whitepaper</title>
+</head>
+<body>
+
+<style>
+  :root{
+    --paper:#F5F6F4; --paper-2:#ECEEEA; --card:#FBFBF9;
+    --ink:#181B1A; --ink-soft:#4A514E; --ink-faint:#727A75;
+    --line:#D8DCD6; --line-soft:#E6E9E3;
+    --accent:#0E7C6B; --accent-deep:#0A5E50; --accent-wash:#E1EFEA;
+    --hex:#9A5B18; --hex-wash:#F3EADD;
+    --code-bg:#F0F1ED; --danger:#A6412E;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"Cascadia Code","JetBrains Mono","SF Mono",ui-monospace,Consolas,"Liberation Mono",monospace;
+    --maxw:720px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#0F1211; --paper-2:#151917; --card:#161A18;
+      --ink:#E6E9E4; --ink-soft:#A2ABA5; --ink-faint:#79837D;
+      --line:#262B28; --line-soft:#20241F;
+      --accent:#3DD1B8; --accent-deep:#5FE0C9; --accent-wash:#12211D;
+      --hex:#D79A55; --hex-wash:#221A10;
+      --code-bg:#12160F; --danger:#E08063;
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#F5F6F4; --paper-2:#ECEEEA; --card:#FBFBF9;
+    --ink:#181B1A; --ink-soft:#4A514E; --ink-faint:#727A75;
+    --line:#D8DCD6; --line-soft:#E6E9E3;
+    --accent:#0E7C6B; --accent-deep:#0A5E50; --accent-wash:#E1EFEA;
+    --hex:#9A5B18; --hex-wash:#F3EADD; --code-bg:#F0F1ED; --danger:#A6412E;
+  }
+  :root[data-theme="dark"]{
+    --paper:#0F1211; --paper-2:#151917; --card:#161A18;
+    --ink:#E6E9E4; --ink-soft:#A2ABA5; --ink-faint:#79837D;
+    --line:#262B28; --line-soft:#20241F;
+    --accent:#3DD1B8; --accent-deep:#5FE0C9; --accent-wash:#12211D;
+    --hex:#D79A55; --hex-wash:#221A10; --code-bg:#12160F; --danger:#E08063;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--serif);font-size:18px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--accent-deep);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  a:hover{border-bottom-color:var(--accent)}
+  a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+  /* ---- eyebrow / labels ---- */
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+  .kicker-accent{color:var(--accent-deep)}
+
+  /* ---- hero ---- */
+  header.hero{border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,var(--paper-2),var(--paper))}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:76px 24px 52px}
+  .hero .eyebrow{margin-bottom:22px}
+  h1{font-size:clamp(38px,6.4vw,62px);line-height:1.04;letter-spacing:-.018em;
+    margin:0 0 18px;font-weight:600;text-wrap:balance}
+  .subtitle{font-size:clamp(19px,2.6vw,23px);color:var(--ink-soft);
+    font-style:italic;margin:0 0 30px;max-width:34ch;text-wrap:balance}
+  .thesis{font-family:var(--serif);font-size:20px;line-height:1.5;
+    border-left:3px solid var(--accent);padding:6px 0 6px 20px;margin:0 0 8px;
+    color:var(--ink);max-width:40ch}
+  .thesis .zh{display:block;font-size:15px;color:var(--ink-faint);font-style:normal;margin-top:6px}
+
+  /* meta grid */
+  .meta{margin-top:38px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .meta div{background:var(--card);padding:12px 16px}
+  .meta dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px}
+  .meta dd{margin:0;font-family:var(--mono);font-size:13px;color:var(--ink)}
+
+  /* ---- state-flow diagram ---- */
+  .flow{margin:40px 0 6px;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px}
+  .flow .node{flex:1 1 128px;background:var(--card);border:1px solid var(--line);
+    border-radius:9px;padding:14px 14px 13px;min-width:120px}
+  .flow .node .n-lab{font-family:var(--mono);font-size:11px;letter-spacing:.05em;
+    color:var(--accent-deep);font-weight:600;margin-bottom:5px}
+  .flow .node .n-desc{font-family:var(--sans);font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+  .flow .arrow{align-self:center;color:var(--ink-faint);font-family:var(--mono);font-size:20px;flex:0 0 auto}
+  .flow .node.commit{border-color:var(--accent);background:var(--accent-wash)}
+
+  /* on-chain vs off-chain reveal strip */
+  .duality{margin:26px 0 4px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:560px){.duality{grid-template-columns:1fr}
+    .meta{grid-template-columns:1fr}}
+  .dcell{border:1px solid var(--line);border-radius:10px;padding:15px 16px;background:var(--card)}
+  .dcell h4{margin:0 0 9px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;font-weight:600}
+  .dcell.pub h4{color:var(--accent-deep)}
+  .dcell.priv h4{color:var(--hex)}
+  .dcell .hexline{font-family:var(--mono);font-size:12px;color:var(--hex);
+    word-break:break-all;line-height:1.55}
+  .dcell .redacted{font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink-soft)}
+  .redacted b{background:var(--ink);color:var(--ink);border-radius:3px;
+    padding:0 2px;user-select:none;transition:color .18s}
+  .dcell.priv:hover .redacted b{color:var(--paper)}
+  .dcell .cap{font-family:var(--sans);font-size:12px;color:var(--ink-faint);margin-top:10px}
+
+  /* ---- body sections ---- */
+  main{padding:8px 0 0}
+  section{padding:44px 0;border-bottom:1px solid var(--line-soft)}
+  section:last-child{border-bottom:0}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--accent-deep);
+    font-weight:600;flex:0 0 auto;padding-top:4px}
+  h2{font-size:clamp(25px,3.6vw,32px);line-height:1.15;letter-spacing:-.012em;
+    margin:0;font-weight:600;text-wrap:balance}
+  h3{font-size:19px;margin:32px 0 6px;font-weight:600;letter-spacing:-.005em;color:var(--ink)}
+  h3 .h3n{font-family:var(--mono);font-size:13px;color:var(--accent-deep);margin-right:8px}
+  p{margin:14px 0;max-width:68ch}
+  strong{font-weight:600}
+  em{color:var(--ink)}
+  .lead{font-size:20px;color:var(--ink-soft);max-width:60ch}
+  ul,ol{max-width:66ch;padding-left:22px}
+  li{margin:7px 0}
+  li::marker{color:var(--accent)}
+
+  /* callout / non-claim */
+  .callout{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:9px;padding:18px 20px;margin:22px 0;max-width:68ch}
+  .callout.warn{border-left-color:var(--hex)}
+  .callout .c-lab{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;margin-bottom:7px}
+  .callout p{margin:0;font-size:17px}
+  .callout strong{color:var(--ink)}
+
+  /* code */
+  pre{background:var(--code-bg);border:1px solid var(--line);border-radius:9px;
+    padding:15px 17px;overflow-x:auto;margin:18px 0;max-width:100%}
+  code{font-family:var(--mono);font-size:13px;line-height:1.6}
+  pre code{color:var(--ink)}
+  :not(pre)>code{background:var(--code-bg);border:1px solid var(--line-soft);
+    padding:1px 5px;border-radius:4px;font-size:.86em;color:var(--hex)}
+  .hex{color:var(--hex)}
+  .kw{color:var(--accent-deep);font-weight:600}
+  .cm{color:var(--ink-faint);font-style:italic}
+
+  /* tables */
+  .tbl{margin:20px 0;overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:14px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  thead th{background:var(--paper-2);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  td strong{color:var(--ink)}
+  .tbl.map td:first-child,.tbl.map td:nth-child(2){font-family:var(--mono);font-size:12.5px}
+  .tbl.map td:nth-child(2){color:var(--accent-deep);font-weight:600}
+
+  /* layer stack */
+  .stack{margin:20px 0;display:flex;flex-direction:column;gap:6px}
+  .layer{border:1px solid var(--line);border-radius:9px;padding:13px 16px;background:var(--card);
+    display:flex;gap:14px;align-items:baseline}
+  .layer .l-name{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em;
+    flex:0 0 108px;color:var(--ink)}
+  .layer .l-desc{font-family:var(--sans);font-size:13px;color:var(--ink-soft);line-height:1.45}
+  .layer.core{border-color:var(--accent);background:var(--accent-wash)}
+  .layer.core .l-name{color:var(--accent-deep)}
+  .layer .l-tag{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ink-faint);flex:0 0 auto;align-self:center}
+
+  /* TOC nav */
+  nav.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 88%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin-bottom:0}
+  .toc-inner{max-width:var(--maxw);margin:0 auto;padding:11px 24px;display:flex;gap:6px;
+    overflow-x:auto;font-family:var(--mono);font-size:12px;scrollbar-width:none}
+  .toc-inner::-webkit-scrollbar{display:none}
+  .toc-inner a{color:var(--ink-soft);border:0;padding:3px 9px;border-radius:6px;white-space:nowrap;flex:0 0 auto}
+  .toc-inner a:hover{background:var(--paper-2);color:var(--accent-deep)}
+
+  footer{padding:40px 0 64px;color:var(--ink-faint)}
+  footer .disclaimer{font-family:var(--sans);font-size:12.5px;line-height:1.6;max-width:70ch;
+    color:var(--ink-faint);border-top:1px solid var(--line);padding-top:20px}
+  .qlist li{margin:11px 0}
+  .qlist li strong{color:var(--accent-deep)}
+  hr.rule{border:0;border-top:1px solid var(--line);margin:0}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<nav class="toc" aria-label="Sections">
+  <div class="toc-inner">
+    <a href="#s1">1 · Introduction</a>
+    <a href="#s2">2 · Principles</a>
+    <a href="#s3">3 · Protocol</a>
+    <a href="#s4">4 · Security</a>
+    <a href="#s5">5 · Applications</a>
+    <a href="#s6">6 · Concerns</a>
+    <a href="#s7">7 · Conclusion</a>
+    <a href="#s8">8 · Open questions</a>
+    <a href="#appendix">Appendix</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Agent Memory State v1 · <span class="kicker-accent">Companion to ERC-XXXX</span></div>
+    <h1>A verifiable, private state layer for agent memory</h1>
+    <p class="subtitle">Commit the proof of a memory transition — never the memory itself.</p>
+    <blockquote class="thesis">Memory is the new state, but raw cognition should never be public calldata.
+      <span class="zh">记忆是新的状态，但原始认知永远不该成为公开的调用数据。</span>
+    </blockquote>
+
+    <div class="flow" role="img" aria-label="prevStateRoot plus ExperienceDelta yields transitionId, then an authorized commit yields nextStateRoot">
+      <div class="node"><div class="n-lab">prevStateRoot</div><div class="n-desc">current state digest</div></div>
+      <div class="arrow" aria-hidden="true">+</div>
+      <div class="node"><div class="n-lab">ExperienceDelta</div><div class="n-desc">7 fields, all commitments</div></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="node"><div class="n-lab">transitionId</div><div class="n-desc">EIP-712 struct hash</div></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="node commit"><div class="n-lab">nextStateRoot</div><div class="n-desc">authorized commit</div></div>
+    </div>
+
+    <div class="duality">
+      <div class="dcell pub">
+        <h4>◆ On-chain — public</h4>
+        <div class="hexline">0x9684a8d3571c5cd9c1e3abb1b0c0797b9fef6965e9002aeefba91e8cb1163754</div>
+        <div class="cap">A 32-byte state root. Constant size, decoupled from content.</div>
+      </div>
+      <div class="dcell priv">
+        <h4>◇ Off-chain — private witness</h4>
+        <div class="redacted">user prefers <b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b> ; policy <b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b> ; embedding <b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b> ; salt, key, locator</div>
+        <div class="cap">Text, vectors, salts, keys, locators — never touch the chain.</div>
+      </div>
+    </div>
+
+    <dl class="meta">
+      <div><dt>Author</dt><dd>Everest An · @everest-an</dd></div>
+      <div><dt>Status</dt><dd>Community draft (pre-ERC)</dd></div>
+      <div><dt>Reference release</dt><dd>1.0.0-alpha.1 · 2026-07-14</dd></div>
+      <div><dt>License</dt><dd>CC0 · public domain</dd></div>
+    </dl>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="s1">
+    <div class="sec-head"><span class="sec-num">§1</span><h2>Introduction — from “state” to “memory state”</h2></div>
+    <p class="lead">Bitcoin gave value a trustless state. Ethereum gave any computable state a trustless transition. As computation’s protagonist becomes the autonomous agent, a new and most-important kind of state emerges: memory.</p>
+
+    <h3><span class="h3n">1.1</span>Blockchains as state transition systems</h3>
+    <p>A ledger can be read as a <strong>state transition system</strong>: a state (who owns what) and a function that takes the current state and a transaction and produces the next — <code>APPLY(S, TX) → S′</code>, or <code>ERROR</code>. Bitcoin’s state is the UTXO set; Ethereum generalized it to accounts and made the function Turing-complete. The power is not record-keeping — it is that <strong>anyone can independently replay history and verify the current state without trusting any single party</strong>. “What the next valid state is” moved from a central authority to deterministic rules everyone can run.</p>
+
+    <h3><span class="h3n">1.2</span>The new state: agent memory</h3>
+    <p>A valuable agent is not a stateless function. It remembers interactions and forms preferences; distills reusable skills from repeated tasks; accumulates knowledge into retrievable cards; evolves its world model over time. This memory <em>is</em> the agent’s identity and its asset. An assistant that has learned your habits over three years and a freshly initialized blank model are two entirely different economic entities.</p>
+    <p>Memory is an agent’s on-chain balance — it determines what the agent is worth, who can trust it, to whom it can be sold. Yet today it lives in isolated black boxes. You cannot <strong>prove</strong> an unaltered learning history, <strong>carry</strong> memory across platforms without leaking it, <strong>audit</strong> when and by whom it was written, or let cooperating agents reach trustless consensus on shared memory.</p>
+
+    <h3><span class="h3n">1.3</span>Thesis</h3>
+    <div class="callout">
+      <div class="c-lab">The whole design turns on one sentence</div>
+      <p>The opportunity: turn agent memory into a verifiable state machine and you have the trust layer for the agent economy. The constraint: memory content is intensely private — it must never enter public calldata. The elegance is satisfying both at once — <strong>on-chain goes the proof that a legitimate, ordered, authorized transition occurred; not the memory.</strong></p>
+    </div>
+
+    <h3><span class="h3n">1.4</span>What a bare content hash fails to establish</h3>
+    <p>A hash alone does not establish: <strong>(1)</strong> which state it advances; <strong>(2)</strong> whether it is the unique successor; <strong>(3)</strong> who controls the namespace and may authorize updates; <strong>(4)</strong> whether all meaningful references were signed; <strong>(5)</strong> whether independent implementations derive the same identifier. Agent Memory State v1 answers all five in one interoperable state machine.</p>
+  </section>
+
+  <section id="s2">
+    <div class="sec-head"><span class="sec-num">§2</span><h2>Design principles</h2></div>
+    <p>Five principles constrain one another and together define what a <em>correct</em> implementation is.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Principle</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Privacy first</strong></td><td>The chain sees only <em>commitments</em> — salted/encrypted hashes — never plaintext text, embeddings, preferences, policies, latent state, salts, keys, or locators. Not optional: raw cognition in calldata is non-conforming.</td></tr>
+        <tr><td><strong>Determinism</strong></td><td>The same delta yields a bit-for-bit identical <code>transitionId</code> in Solidity, TypeScript, or any client — enforced by fixed type strings, fixed ABI encoding, and golden vectors.</td></tr>
+        <tr><td><strong>Authorization is cryptographic</strong></td><td>Write permission is bound to a space’s initial controller: <code>spaceId</code> derives from controller + salt, so a namespace claim is specific to whoever holds the key.</td></tr>
+        <tr><td><strong>Signer-agnostic</strong></td><td>EOA (non-malleable ECDSA), smart / multisig / abstract account (EIP-1271), or the controller calling directly (empty signature).</td></tr>
+        <tr><td><strong>Attack-resistant commitments</strong></td><td>Commitments to low-entropy content are brute-forceable, so they must be salted or encrypted. Real locators stay a private witness.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="s3">
+    <div class="sec-head"><span class="sec-num">§3</span><h2>The protocol: Agent Memory State v1</h2></div>
+    <p>We follow the Ethereum whitepaper’s order — the “account,” the “transaction,” the “state transition function,” then “authorization.” The mapping to concepts you know:</p>
+    <div class="tbl map"><table>
+      <thead><tr><th>Ethereum</th><th>Agent Memory State</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Account</td><td>MemorySpace</td><td>Container of state and identity</td></tr>
+        <tr><td>Transaction</td><td>ExperienceDelta</td><td>Atomic operation advancing state</td></tr>
+        <tr><td>State root</td><td>stateRoot</td><td>Cryptographic digest of current state</td></tr>
+        <tr><td>Tx hash</td><td>transitionId</td><td>Unique identifier of one operation</td></tr>
+        <tr><td>nonce / order</td><td>sequence</td><td>Anti-replay, strict ordering</td></tr>
+        <tr><td>Signature</td><td>authorizer + EIP-712</td><td>Who may advance state</td></tr>
+      </tbody>
+    </table></div>
+    <p>The crucial difference: an Ethereum transition writes <em>how much moved</em> into public state; an Agent Memory State transition writes only the <em>proof a legitimate transition occurred</em> — content stays off-chain.</p>
+
+    <h3><span class="h3n">3.1</span>MemorySpace — identity &amp; container</h3>
+    <p>A memory space holds one linear history, analogous to an account. Its identity is derived, not assigned:</p>
+    <pre><code><span class="cm">MEMORY_SPACE_TYPE = "MemorySpace(address initialController,bytes32 salt)"</span>
+
+spaceId = <span class="kw">keccak256</span>(abi.encode(
+  <span class="kw">keccak256</span>(bytes(MEMORY_SPACE_TYPE)),
+  initialController,
+  salt
+))</code></pre>
+    <p>The claim “I create this namespace” is thus cryptographically specific to <code>initialController</code> — nobody without the key can forge a <code>spaceId</code> pointing at that controller. Each space keeps a <strong>head</strong> (latest <code>sequence</code>, current <code>stateRoot</code>) under a <strong>controller + authorizer</strong> model with nonce rotation. The controller is the recovery boundary; the authorizer approves transitions and may be a hot EOA, multisig, smart account, or policy contract. Rotation preserves identity and history.</p>
+
+    <h3><span class="h3n">3.2</span>ExperienceDelta — the atomic operation</h3>
+    <p>One evolution of memory is abstracted as an experience delta. The normative struct has exactly <strong>seven</strong> fields — no more, no less:</p>
+    <pre><code><span class="kw">struct</span> ExperienceDelta {
+  bytes32 spaceId;              <span class="cm">// which memory space</span>
+  uint64  sequence;             <span class="cm">// strictly increasing, begins at 1</span>
+  bytes32 prevStateRoot;        <span class="cm">// state root before this transition (0 for first)</span>
+  bytes32 deltaCommitment;      <span class="cm">// commitment to *what changed* (non-zero)</span>
+  bytes32 provenanceCommitment; <span class="cm">// commitment to *where it came from* (0 = absent)</span>
+  bytes32 profileId;            <span class="cm">// interpretation profile (non-zero)</span>
+  bytes32 locatorCommitment;    <span class="cm">// commitment to the off-chain locator (0 = absent)</span>
+}</code></pre>
+    <p>Deliberately austere: the spec <strong>excludes</strong> author, timestamp, raw URI, memory-type enum, previous-delta pointer, and separate input/inference fields from the transition. Every extra field admitted into the hash is one more surface for cross-implementation drift and one more channel for leakage. Seven is the minimal set <em>sufficient</em> to express a meaningful, authorizable, auditable transition while <em>revealing</em> no cognitive content — three commitment fields (what changed / where from / where it lives) carry all of “privacy first.”</p>
+
+    <h3><span class="h3n">3.3</span>The state transition function</h3>
+    <p><strong>Step 1 — compute the transitionId</strong> from the fixed type string and ABI encoding:</p>
+    <pre><code>transitionId = <span class="kw">keccak256</span>(abi.encode(
+  <span class="kw">keccak256</span>(bytes(EXPERIENCE_DELTA_TYPE)),
+  spaceId, sequence, prevStateRoot, deltaCommitment,
+  provenanceCommitment, profileId, locatorCommitment
+))</code></pre>
+    <p>Because the type string and encoding are fully fixed, every conforming implementation computes the same value. There is no alternate JSON, JCS, CBOR, or app-specific ID.</p>
+    <p><strong>Step 2 — fold the next state root</strong>, chaining the previous root and this transition:</p>
+    <pre><code>nextStateRoot = <span class="kw">keccak256</span>(abi.encode(
+  <span class="kw">keccak256</span>(bytes(MEMORY_STATE_TYPE)),
+  prevStateRoot, transitionId
+))</code></pre>
+    <p>The history becomes an <strong>append-only state accumulator</strong>: every <code>stateRoot</code> commits to the whole sequence from genesis; tampering with any past transition invalidates every later root — exactly as altering an old block does. Critically, <strong>the registry computes <code>nextStateRoot</code>; callers cannot supply it.</strong></p>
+
+    <h3><span class="h3n">3.4</span>Authorization &amp; consensus</h3>
+    <p>A valid root is necessary, not sufficient. For the registry to <strong>accept</strong> a transition: the space exists; <code>deltaCommitment</code> and <code>profileId</code> are non-zero; <code>sequence == head.sequence + 1</code>; <code>prevStateRoot == head.stateRoot</code>; and the authorizer approves. Authorization is an EIP-712 signature over a fixed domain:</p>
+    <pre><code>name              = <span class="hex">"AgentMemoryState"</span>
+version           = <span class="hex">"1"</span>
+chainId           = current chain ID
+verifyingContract = registry address</code></pre>
+    <p>The fixed domain closes cross-chain and cross-registry replay. Signers: EOAs (non-malleable ECDSA), smart/multisig accounts (EIP-1271, <code>0x1626ba7e</code> magic value), or the controller directly (empty signature only when <code>msg.sender</code> <em>is</em> the required account). The key rule: <strong>signatures cover all delta fields, including <code>locatorCommitment</code></strong> — which is exactly what closes the relay-manipulation gap. A relayer cannot substitute the locator without invalidating the signature.</p>
+
+    <h3><span class="h3n">3.5</span>Baseline private commitments</h3>
+    <p>Profiles may define stronger schemes (including zero-knowledge); a conforming implementation should support this domain-separated baseline:</p>
+    <pre><code>deltaCommitment      = <span class="kw">keccak256</span>(abi.encode(DELTA_DOMAIN, profileId, deltaSalt, <span class="kw">keccak256</span>(payloadBytes)))
+provenanceCommitment = <span class="kw">keccak256</span>(abi.encode(PROVENANCE_DOMAIN, provenanceSalt, <span class="kw">keccak256</span>(provenanceBytes)))
+locatorCommitment    = <span class="kw">keccak256</span>(abi.encode(LOCATOR_DOMAIN, locatorSalt, <span class="kw">keccak256</span>(bytes(locator))))</code></pre>
+    <p>Each salt is 32 bytes, independently sampled. For low-entropy plaintext the salt <strong>must</strong> stay secret, or the payload <strong>must</strong> be ciphertext from a fresh high-entropy key and nonce — a public salt does not stop targeted dictionary attacks.</p>
+  </section>
+
+  <section id="s4">
+    <div class="sec-head"><span class="sec-num">§4</span><h2>Security considerations</h2></div>
+    <p>A protocol carrying real value must draw its security boundary honestly. This states what it protects, what it trusts, and — crucially — what it does <em>not</em> promise.</p>
+
+    <div class="callout warn">
+      <div class="c-lab">§4.1 · The critical non-claim</div>
+      <p><strong>A valid transition proves only that a configured authority approved a particular committed state transition.</strong> It does <em>not</em> prove the truthfulness of the content, the availability of off-chain data, any ownership, or that a deletion occurred. The registry verifies exactly two things — <strong>authorization</strong> and <strong>state-machine continuity</strong> — and does not pretend to know more.</p>
+    </div>
+
+    <h3><span class="h3n">4.2</span>Trust assumptions</h3>
+    <p><strong>The registry is trusted only to execute its published bytecode.</strong> Storage providers, relayers, indexers, and profile publishers get <em>no</em> implicit trust. This minimal-trust stance lets the security be argued mechanically.</p>
+
+    <h3><span class="h3n">4.3</span>Threats, mitigations, residual risk</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Threat</th><th>Mitigation</th><th>Residual risk</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Namespace hijacking</strong></td><td><code>spaceId=keccak(controller,salt)</code>; registration needs authorization</td><td>Controller key compromised before registration</td></tr>
+        <tr><td><strong>Unauthorized modification</strong></td><td>Registry honors only the configured authorizer</td><td>Permissive or compromised authorizer</td></tr>
+        <tr><td><strong>Relay manipulation</strong></td><td>Every field (incl. <code>locatorCommitment</code>) is signed</td><td>Relayer can censor/delay, not modify</td></tr>
+        <tr><td><strong>Invalid prior state</strong></td><td>Exact <code>prevStateRoot</code> + <code>sequence</code> check</td><td>Linear model forbids concurrent branches</td></tr>
+        <tr><td><strong>Cross-chain replay</strong></td><td>EIP-712 <code>chainId</code> binding</td><td>Identical-parameter forks need ops response</td></tr>
+        <tr><td><strong>Config replay</strong></td><td>Per-space <code>configNonce</code> rotation</td><td>Controller compromise → malicious update</td></tr>
+        <tr><td><strong>Locator exposure</strong></td><td>Only a salted commitment is public</td><td>Out-of-band witness disclosure</td></tr>
+        <tr><td><strong>Hash drift</strong></td><td>Golden vectors across Solidity / TS</td><td>New impls may skip conformance</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3><span class="h3n">4.4</span>The cryptography of private commitments</h3>
+    <p>Hashing short memory directly is brute-forceable — “user prefers dark mode” can be enumerated and matched. Hence 32-byte domain-separated salts, and for low-entropy payloads a secret salt or encryption with a random key and nonce. Salts, keys, plaintext, and locators form the <strong>private witness</strong>, entirely off-chain. This shifts a clear responsibility onto applications — <strong>they bear witness preservation and key recovery</strong> — and leaves honest side channels: transition <em>timing</em>, <em>frequency</em>, and <em>profileId</em> remain visible.</p>
+
+    <h3><span class="h3n">4.5</span>Pre-deployment gates</h3>
+    <p>Seven gates before production: EIP-712 validation, fuzzing the sequence logic, cross-verification by an independent implementation, encryption-profile review, recovery-procedure drills, testnet monitoring, and an external Solidity audit. Security is a set of executable checkpoints, not a one-time declaration.</p>
+  </section>
+
+  <section id="s5">
+    <div class="sec-head"><span class="sec-num">§5</span><h2>Applications &amp; future work</h2></div>
+    <p>The core does only “authorization + continuity.” Product value grows in the layers above it — and that layering is itself the key architectural decision.</p>
+
+    <h3><span class="h3n">5.1</span>Four-layer architecture</h3>
+    <p>Early prototypes bundled state primitives, memory frameworks, deletion, market settlement, a “REC language,” and agent behaviors together — too coupled to audit. The refactor split them into four tiers, each with its own trust model:</p>
+    <div class="stack">
+      <div class="layer"><span class="l-name">Adapters</span><span class="l-desc">Awareness taxonomy, payload construction, real-memory glue</span><span class="l-tag">integration</span></div>
+      <div class="layer"><span class="l-name">Experimental</span><span class="l-desc">Memory Market, REC / cognitive assets</span><span class="l-tag">vision</span></div>
+      <div class="layer"><span class="l-name">Extensions</span><span class="l-desc">DeletionAttestation, etc. — each states its own trust model</span><span class="l-tag">opt-in</span></div>
+      <div class="layer core"><span class="l-name">Core</span><span class="l-desc">Authorization · delta hashing · state rules · signatures · events</span><span class="l-tag">normative</span></div>
+    </div>
+    <p><strong>The core is small enough for anyone to implement and audit independently; products evolve above it without touching the base.</strong> Ethereum’s “thin protocol, thick applications” applied to memory — markets, deletion, and cognitive assets live outside the core, just as ERC-20 and NFTs live outside Ethereum’s.</p>
+
+    <h3><span class="h3n">5.2</span>Extensions — deletion attestations</h3>
+    <p>The “right to be forgotten” is unavoidable, but on an append-only accumulator deletion is a <em>claim</em>, not a physical fact. A deletion-attestation extension can publish an “I deleted X” commitment, but it <strong>must state its own trust model</strong>: the chain proves an authority <em>attested</em> to deletion, never that off-chain data was truly erased. Making the limit explicit avoids the misleading promise of “on-chain deletion.”</p>
+
+    <h3><span class="h3n">5.3</span>Experimental — the Memory Market</h3>
+    <p><code>MemoryMarket.sol</code> is the first economic-layer prototype: a <strong>time-limited licensing marketplace for memory spaces</strong>. What is traded is a time-bounded license to access a specific committed state — <em>not</em> the plaintext.</p>
+    <ul>
+      <li><strong>List</strong> — the controller sets token, price, duration, optional royalty (0–10,000 bps), and <strong>captures the current state root</strong> — anchoring the license to an exact configuration to prevent “stale-state sales.”</li>
+      <li><strong>Purchase</strong> — reentrancy-guarded; validates the listing is active <em>and the state root is unchanged</em>; splits payment between royalty recipient and seller; extends expiry <strong>additively</strong> (stacking, not resetting).</li>
+      <li><strong>Views</strong> — <code>hasLicense()</code>, <code>licenseExpiresAt()</code>, <code>getListing()</code> for composable queries.</li>
+    </ul>
+    <p>The market settles in an <strong>arbitrary ERC-20</strong>. The core binds no native token; an ecosystem settlement / governance token (such as <strong>AWAR</strong>) is a natural evolution of this layer, <em>not a prerequisite</em> of the protocol — preserving “neutral core, optional economics.”</p>
+
+    <h3><span class="h3n">5.4</span>Experimental — cognitive assets &amp; REC (vision)</h3>
+    <p>Further out: capitalize memory into <strong>cognitive assets</strong> and a <strong>REC</strong> vocabulary for cognitive value and licensing. In honesty: as of <code>1.0.0-alpha.1</code> these have <strong>no contract code</strong> — the architecture record marks them “product-level evolution, not foundational protocol.” Keeping them experimental and isolated is how the vision is kept from contaminating the auditable core.</p>
+
+    <h3><span class="h3n">5.5</span>Adapters — connecting a real memory system</h3>
+    <p><code>@erc-awar/awareness-adapter</code> converts Awareness knowledge cards and embeddings into a public <code>ExperienceDelta</code> plus a private witness. Card type maps to an interpretation profile:</p>
+    <div class="tbl map"><table>
+      <thead><tr><th>Card type</th><th>Profile</th><th>Semantics</th></tr></thead>
+      <tbody>
+        <tr><td>decision</td><td>POLICY</td><td>Constrains the agent’s future behavior</td></tr>
+        <tr><td>insight / solution / workflow</td><td>TEXT</td><td>Human-readable knowledge</td></tr>
+        <tr><td>memory</td><td>EPISODIC</td><td>A recollection observed at a point in time</td></tr>
+        <tr><td>task</td><td>EPISODIC</td><td>A unit of work tracked over time</td></tr>
+      </tbody>
+    </table></div>
+    <p>The full profile vocabulary (<code>TEXT, EMBEDDING, LATENT, TOOL_TRACE, EPISODIC, POLICY, SHARED_WORKING, PROOF</code>) is adapter-owned — <em>not</em> protocol enums — so it evolves freely. The adapter is deliberately thin: it does <strong>not</strong> generate salts or construct commitments — those are delegated to the reference <code>MemoryStateMachine</code>. A real memory system integrates by mapping records into cards and providing salts and locators; the adapter cleanly splits the <strong>public delta</strong> (safe for calldata) from the <strong>private witness</strong> (locators + salts, off-chain).</p>
+
+    <h3><span class="h3n">5.6</span>Migration</h3>
+    <p>Migrating from v0 means creating a <strong>new v1 space</strong> with a private migration payload documenting the v0 export, identifiers, tooling, and audit; the original chain is untouched. v0’s JCS identifiers, unsigned URIs, and fixed enums are explicitly <strong>not</strong> wire-compatible — a clean break beats false compatibility carrying baggage.</p>
+  </section>
+
+  <section id="s6">
+    <div class="sec-head"><span class="sec-num">§6</span><h2>Miscellanea &amp; concerns</h2></div>
+    <ul>
+      <li><strong>Linear vs concurrent.</strong> Strict linear advancement buys anti-replay/reorder/fork guarantees at the cost of no concurrent branches within a space. Concurrency is served by multiple spaces + off-chain merge — a conscious trade of flexibility for auditability.</li>
+      <li><strong>Gas &amp; scalability.</strong> Each transition writes only a few <code>bytes32</code> — fixed-width, decoupled from content size. One sentence or an entire vector store, the on-chain footprint is constant; a natural fit for L2s and rollups.</li>
+      <li><strong>Availability is the app’s job.</strong> <code>locatorCommitment</code> commits to <em>what</em> the locator is, not that its content still exists. Availability, backup, witness preservation, and key recovery are application responsibilities — an honest boundary, not a defect.</li>
+      <li><strong>Profiles, not enums.</strong> The core freezes no taxonomy; <code>profileId</code> is application-defined — as Ethereum left “token” to ERC-20.</li>
+      <li><strong>Road to a formal ERC.</strong> A Magicians thread, discussion URL in metadata, confirmed authors and an EIP champion, cryptography/agent reviewers, an independent second implementation passing the golden vectors, an external audit and testnet validation, then a PR to <code>ethereum/ERCs</code>. Standardization is public and multi-party — not a unilateral declaration.</li>
+    </ul>
+  </section>
+
+  <section id="s7">
+    <div class="sec-head"><span class="sec-num">§7</span><h2>Conclusion</h2></div>
+    <p>Agent Memory State v1 gives memory what it needs: a deterministic, privacy-first, strictly authorized, cross-implementation-interoperable state machine. Its whole insight is one restrained choice — <strong>commit the proof of a memory-state transition, not the memory itself.</strong> A seven-field delta, a bit-for-bit <code>transitionId</code>, an append-only accumulator, and an honestly drawn trust boundary form a foundation that can be independently audited, freely extended, and relied upon by real value.</p>
+    <p>On that foundation, memory can — for the first time — become a verifiable, portable, tradable asset without losing its privacy: deletion proven <em>as attested</em>, access <em>time-licensed</em>, cognition <em>capitalized</em>. The core stays neutral and small; products bloom above it.</p>
+    <div class="callout">
+      <div class="c-lab">In one line</div>
+      <p><strong>Memory is the new state. AwareLiquid makes that state, for the first time, both verifiable and private.</strong> This is the starting point for the trust layer of the agent economy.</p>
+    </div>
+  </section>
+
+  <section id="s8">
+    <div class="sec-head"><span class="sec-num">§8</span><h2>Open questions — request for feedback</h2></div>
+    <p>Feedback is invited on the Ethereum Magicians thread. The questions we most want the community’s input on:</p>
+    <ol class="qlist">
+      <li><strong>Linearity.</strong> Is a strictly linear per-space state machine the right base primitive, or should the core admit a minimal branch/merge notion (at the cost of auditability)?</li>
+      <li><strong>Baseline commitments.</strong> Is the domain-separated keccak baseline an acceptable normative floor, with ZK schemes as opt-in profiles? Should the ERC mandate encryption for any low-entropy payload rather than merely a secret salt?</li>
+      <li><strong>EIP-1271 edge cases.</strong> Which authorizer-contract behaviors (reverts, malformed returns, <code>STATICCALL</code> gas griefing) should the spec call out more forcefully?</li>
+      <li><strong>profileId governance.</strong> Should there be any registry-level convention for profile identifiers, or is fully application-defined the right long-term stance?</li>
+      <li><strong>Deletion semantics.</strong> Is “attestation with a stated scope” the right framing, and should the core reference it normatively or stay silent?</li>
+      <li><strong>Observation time.</strong> Is recording <code>block.timestamp</code> as observation time (never as ordering input) sufficient?</li>
+      <li><strong>Naming.</strong> Is “Agent Memory State” the right title, or should it lead with “Commitments” / “Registry” to set expectations about the non-claim?</li>
+    </ol>
+  </section>
+
+  <section id="appendix">
+    <div class="sec-head"><span class="sec-num">§A</span><h2>Appendix — canonical constants &amp; golden vectors</h2></div>
+    <p><strong>Golden typehashes</strong> (canonical v1 vector):</p>
+    <pre><code>ExperienceDelta typehash:
+  <span class="hex">0x4f020f86bc06d852f1fde17853b4d92a70214eeab8e09718028124af097d070d</span>
+MemoryState typehash:
+  <span class="hex">0xf3148762556cbf851baf4b9a205e18ff4e6b366a58a3a1ef58e8626ba41beadb</span>
+MemorySpace typehash:
+  <span class="hex">0x9ae5478f084ad3b841da58a9cb2354d153cddec59ee64d0cb741fa9d08884531</span></code></pre>
+    <p><strong>Golden derived values:</strong></p>
+    <pre><code>transitionId:
+  <span class="hex">0xdd00dd6eb3aec704b5455502647a0caacf23be6c724eda4a60d9645291e7f4e5</span>
+nextStateRoot:
+  <span class="hex">0x9684a8d3571c5cd9c1e3abb1b0c0797b9fef6965e9002aeefba91e8cb1163754</span></code></pre>
+    <p><strong>Verification:</strong></p>
+    <pre><code><span class="cm"># One-shot: install + full check</span>
+pnpm install --frozen-lockfile &amp;&amp; pnpm check
+
+<span class="cm"># Run separately</span>
+pnpm test:ts
+cd contracts &amp;&amp; forge fmt --check &amp;&amp; forge test</code></pre>
+    <p>Any implementation must reproduce the three typehashes and every transition ID bit-for-bit against the cross-language <code>test-vectors/v1.json</code>.</p>
+  </section>
+
+  <footer>
+    <p class="disclaimer">Companion to ERC-XXXX · <code>erc/erc-xxxx-agent-memory-state.md</code> · Repository <code>AwareLiquid/ERC-AWAR</code> · Copyright waived via CC0. This whitepaper is a community draft. Some features described (Memory Market, cognitive assets, REC) are experimental or aspirational and constitute neither investment advice nor a commitment to future functionality. The protocol core’s security boundary is governed by the non-claim in §4.1.</p>
+  </footer>
+
+</main>
+
+</body>
+</html>

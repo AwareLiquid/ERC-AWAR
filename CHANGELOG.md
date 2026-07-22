@@ -2,6 +2,17 @@
 
 All notable implementation and protocol changes are recorded here.
 
+## Unreleased
+
+### Added
+
+- Whitepaper as a narrative companion to the ERC, following the Ethereum
+  whitepaper structure (state transition systems → memory as state → protocol →
+  applications → concerns → conclusion) and closing with an Open Questions
+  section for the Ethereum Magicians discussion:
+  `docs/whitepaper.md` (English), `docs/whitepaper.zh.md` (Chinese), plus
+  `docs/whitepaper.pdf` and single-file `docs/whitepaper.html` renderings.
+
 ## 1.0.0-alpha.1 - 2026-07-14
 
 ### Added

@@ -15,8 +15,9 @@
     "typecheck": "pnpm build && pnpm -r --if-present typecheck",
     "test:ts": "pnpm build && pnpm -r --if-present test",
     "test:contracts": "cd contracts && forge test",
+    "check:erc-assets": "node scripts/check-erc-assets.mjs",
     "test": "pnpm test:ts && pnpm test:contracts",
-    "check": "pnpm clean && pnpm build && pnpm -r --if-present typecheck && pnpm -r --if-present test && pnpm test:contracts",
+    "check": "pnpm clean && pnpm build && pnpm -r --if-present typecheck && pnpm -r --if-present test && pnpm check:erc-assets && pnpm test:contracts",
     "audit": "pnpm audit --audit-level=moderate",
     "release:check": "pnpm check && pnpm audit --audit-level=moderate"
   },

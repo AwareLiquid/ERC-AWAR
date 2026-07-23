@@ -424,15 +424,17 @@ nextStateRoot:
 ```
 
 The complete input, private commitment witnesses, domain separator, signing
-digest, registration hash, and authorization-update hash are provided in the
-accompanying machine-readable test vector.
+digest, registration hash, and authorization-update hash are provided in
+[the machine-readable test vector](../assets/erc-xxxx/test-vectors-v1.json).
 
 ## Reference Implementation
 
-The accompanying reference implementation contains a Solidity registry, a
-TypeScript SDK, an Awareness adapter, and a dependency-isolated second
-TypeScript implementation. All three hashing implementations consume the same
-golden vector.
+The reference implementation contains a Solidity registry
+([`AgentMemoryStateRegistry.sol`](../../contracts/src/reference/AgentMemoryStateRegistry.sol),
+implementing [`IAgentMemoryState.sol`](../../contracts/src/interfaces/IAgentMemoryState.sol)),
+a TypeScript SDK, an Awareness adapter, and a dependency-isolated second TypeScript
+implementation. All three hashing implementations consume the same golden vector
+linked above.
 
 ## Security Considerations
 
@@ -440,27 +442,29 @@ golden vector.
 
 `keccak256(rawMemory)` is not a hiding commitment for low-entropy values. A salt
 prevents precomputation but does not prevent targeted guessing when the salt is
-public. Sensitive or low-entropy payloads MUST be encrypted or use a secret salt.
+public. Sensitive or low-entropy payloads therefore need encryption or a secret
+salt, as required in the Specification.
 
 ### Equality and metadata leakage
 
 Even private commitments expose timing, update frequency, Space relationships,
 and profile identifiers. Reusing salts, ciphertext, or locator witnesses can
-also reveal equality. Profiles SHOULD consider padding, batching, and salt/key
-rotation where this leakage matters.
+also reveal equality. Profiles can mitigate this with padding, batching, and
+salt or key rotation where the leakage matters.
 
 ### Authorization compromise
 
 A compromised authorizer can append valid-looking state. A compromised
-controller can replace the authorizer or controller. Deployments SHOULD use
-contract-account policies, threshold authorization, spending or rate limits,
+controller can replace the authorizer or controller. Deployments are advised to
+use contract-account policies, threshold authorization, spending or rate limits,
 and operational recovery procedures appropriate to the value of the Space.
 
 ### Contract signature behavior
 
-EIP-1271 validation is external code execution through `STATICCALL`. Registries
-MUST require the exact magic value, handle reverts and malformed return data, and
-complete authorization before mutating state.
+EIP-1271 validation is external code execution through `STATICCALL`. The
+Specification requires the exact magic value, handling of reverts and malformed
+return data, and completing authorization before state is mutated; an
+implementation that relaxes any of these accepts forged authorization.
 
 ### Delegated accounts
 
@@ -485,20 +489,21 @@ transaction or race another submission of the same transition.
 A valid commitment proves neither data availability nor truth of the committed
 memory. It proves that the configured authorizer approved a state transition.
 Applications requiring availability, inference correctness, or provenance truth
-need separate mechanisms and MUST NOT infer them from this registry alone.
+need separate mechanisms, and cannot infer them from this registry alone.
 
 ### Deletion claims
 
 Neither revocation nor key-destruction evidence can prove universal erasure of
-data already copied by another party. Extensions MUST describe deletion records
-as attestations with a stated scope, not as absolute proofs of deletion.
+data already copied by another party. Extensions are expected to describe
+deletion records as attestations with a stated scope, not as absolute proofs of
+deletion.
 
 ### Upgradeability
 
 An upgradeable registry can change hashing or authorization semantics after
-users sign transitions. Deployments using proxies SHOULD make upgrade authority
-explicit and SHOULD freeze or version any change affecting the normative v1
-behavior.
+users sign transitions. Deployments using proxies are advised to make upgrade
+authority explicit, and to freeze or version any change affecting the normative
+v1 behavior.
 
 ## Copyright
 

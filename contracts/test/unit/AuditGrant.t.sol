@@ -98,9 +98,13 @@ contract AuditGrantTest is Test {
     }
 
     function test_RevertWhen_NotController() public {
+        // Fold before the cheatcode: `_foldAll` makes an external call, and vm.prank /
+        // vm.expectRevert only apply to the very next call.
+        bytes32 root = _foldAll(3);
+
         vm.prank(stranger);
         vm.expectRevert(AuditGrant.NotSpaceController.selector);
-        extension.grant(SPACE, auditor, 1, 3, _foldAll(3));
+        extension.grant(SPACE, auditor, 1, 3, root);
     }
 
     function test_RevertWhen_RangeInvalid() public {
@@ -162,12 +166,15 @@ contract AuditGrantTest is Test {
     }
 
     function test_RevertWhen_EmptyRootOrZeroAuditor() public {
+        // Fold before the cheatcodes, for the same reason as above.
+        bytes32 root = _foldAll(3);
+
         vm.startPrank(controller);
         vm.expectRevert(AuditGrant.EmptyWitnessRoot.selector);
         extension.grant(SPACE, auditor, 1, 3, bytes32(0));
 
         vm.expectRevert(AuditGrant.ZeroAuditor.selector);
-        extension.grant(SPACE, address(0), 1, 3, _foldAll(3));
+        extension.grant(SPACE, address(0), 1, 3, root);
         vm.stopPrank();
     }
 }

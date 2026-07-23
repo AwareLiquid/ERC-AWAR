@@ -12,6 +12,28 @@ All notable implementation and protocol changes are recorded here.
   section for the Ethereum Magicians discussion:
   `docs/whitepaper.md` (English), `docs/whitepaper.zh.md` (Chinese), plus
   `docs/whitepaper.pdf` and single-file `docs/whitepaper.html` renderings.
+- ADR-0005: three metadata layers (Core / Disclosure / private witness) and the
+  auditability model. Core is unchanged; disclosure is opt-in per Space.
+- `SpaceDescriptor` extension: optional controller-published description of what a
+  Space is, including the profile vocabulary needed to interpret its `profileId`.
+- `AuditGrant` extension: binds a selective disclosure to the complete ordered witness
+  set for a sequence range, so a cherry-picked or incomplete disclosure no longer folds
+  to the committed root. Exposes `foldWitnessRoot` for off-chain parity.
+
+### Changed
+
+- **Breaking (extension):** `DeletionAttestation.attest` now takes
+  `bytes32 evidenceCommitment` instead of `bytes calldata evidence`. Callers must hash
+  off chain and retain the preimage as a private witness.
+- `profileId` is documented as a public, non-confidential field rather than treated as
+  incidentally leaky. Applications needing kind-secrecy should allocate an opaque
+  per-Space profile identifier instead of a shared vocabulary entry.
+
+### Fixed
+
+- `DeletionAttestation` no longer publishes raw deletion evidence in transaction
+  calldata, which contradicted architecture invariant 9 and the rule against exposing
+  raw private payloads through a public wrapper.
 
 ## 1.0.0-alpha.1 - 2026-07-14
 

@@ -11,6 +11,11 @@ contract DeletionAttestationTest is Test {
     DeletionAttestation internal extension;
     address internal controller = address(0xA11CE);
     bytes32 internal constant SPACE_SALT = keccak256("space");
+
+    // Commitments are computed off chain; the raw evidence never reaches calldata.
+    bytes32 internal constant EVIDENCE_COMMITMENT = keccak256("evidence||salt");
+    bytes32 internal constant OTHER_COMMITMENT = keccak256("other-evidence||salt");
+
     bytes32 internal SPACE;
     bytes32 internal transitionId;
 
@@ -35,20 +40,26 @@ contract DeletionAttestationTest is Test {
 
     function test_ControllerCanAttestOnce() public {
         vm.prank(controller);
-        extension.attest(SPACE, transitionId, hex"1234");
-        assertEq(extension.evidenceOf(transitionId), keccak256(hex"1234"));
+        extension.attest(SPACE, transitionId, EVIDENCE_COMMITMENT);
+        assertEq(extension.evidenceOf(transitionId), EVIDENCE_COMMITMENT);
 
         vm.prank(controller);
         vm.expectRevert(DeletionAttestation.AlreadyAttested.selector);
-        extension.attest(SPACE, transitionId, hex"5678");
+        extension.attest(SPACE, transitionId, OTHER_COMMITMENT);
     }
 
     function test_RevertWhen_UnauthorizedOrUnknown() public {
         vm.expectRevert(DeletionAttestation.NotSpaceController.selector);
-        extension.attest(SPACE, transitionId, hex"1234");
+        extension.attest(SPACE, transitionId, EVIDENCE_COMMITMENT);
 
         vm.prank(controller);
         vm.expectRevert(DeletionAttestation.UnknownTransition.selector);
-        extension.attest(SPACE, bytes32(uint256(0xDEAD)), hex"1234");
+        extension.attest(SPACE, bytes32(uint256(0xDEAD)), EVIDENCE_COMMITMENT);
+    }
+
+    function test_RevertWhen_CommitmentIsZero() public {
+        vm.prank(controller);
+        vm.expectRevert(DeletionAttestation.EmptyEvidenceCommitment.selector);
+        extension.attest(SPACE, transitionId, bytes32(0));
     }
 }

@@ -59,6 +59,14 @@ agent identity registries, or inference standards.
 
 - `contracts/src/extensions/DeletionAttestation.sol`: records one scoped evidence
   commitment for a transition. It explicitly does not prove universal erasure.
+  It accepts a commitment, never raw evidence, so nothing is published in calldata.
+- `contracts/src/extensions/SpaceDescriptor.sol`: optional, controller-published
+  description of what a Space *is* (domain, purpose, profile vocabulary). It never
+  describes what a Space contains. A Space that never publishes stays fully opaque.
+- `contracts/src/extensions/AuditGrant.sol`: binds a selective disclosure to the
+  complete, ordered witness set for a sequence range. Per-item commitment checks cannot
+  show that a disclosure is complete rather than cherry-picked; committing to the folded
+  set before disclosure makes withholding or substitution detectable. See ADR-0005.
 
 Extensions may reference Space or Transition IDs but do not change core state.
 

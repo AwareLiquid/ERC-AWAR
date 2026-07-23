@@ -44,7 +44,7 @@ contract Demo is Script {
         console.log("experimental license purchased");
 
         vm.prank(controller);
-        deletion.attest(spaceId, secondId, hex"deadbeef");
+        deletion.attest(spaceId, secondId, keccak256(hex"deadbeef"));
         console.log("deletion evidence committed");
         assert(firstId != secondId);
     }

@@ -34,6 +34,13 @@ All notable implementation and protocol changes are recorded here.
 - `DeletionAttestation` no longer publishes raw deletion evidence in transaction
   calldata, which contradicted architecture invariant 9 and the rule against exposing
   raw private payloads through a public wrapper.
+- **EIP-7702 accounts can now authorize.** Authorization previously branched on
+  `signer.code.length`, routing every 7702-delegated EOA into ERC-1271 validation. Since
+  a delegated account carries `0xef0100 || delegate` code and many delegates implement no
+  signature policy, those users were locked out entirely after Pectra. Validation now
+  tries ERC-1271 first (so a delegate that does implement a policy still enforces it) and
+  falls back to canonical ECDSA. The spec now defines this ordering explicitly instead of
+  leaving the EOA/contract distinction unspecified.
 
 ## 1.0.0-alpha.1 - 2026-07-14
 

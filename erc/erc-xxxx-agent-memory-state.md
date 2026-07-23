@@ -210,10 +210,18 @@ MUST be non-zero. The nonce prevents replay of an earlier configuration.
 
 ### Signature validation
 
-For an externally owned authorizer, the registry MUST recover the signer from a
-canonical, non-malleable ECDSA signature and require equality with the configured
-account. For a contract authorizer, it MUST call `isValidSignature` as specified
-by EIP-1271 and require the `0x1626ba7e` magic value.
+A registry MUST NOT select between ECDSA and EIP-1271 validation by account code
+presence alone. An externally owned account delegated under [EIP-7702](./eip-7702.md)
+carries code of the form `0xef0100 || delegate`, and many delegates implement no
+signature policy; branching on code presence would reject those accounts outright.
+
+A signature satisfying either scheme MUST be accepted, evaluated in this order. When
+the authorizer has non-empty code, the registry MUST first call `isValidSignature` as
+specified by EIP-1271 and accept the signature on the `0x1626ba7e` magic value.
+Otherwise, or when that call reverts, returns fewer than 32 bytes, or returns any other
+value, the registry MUST recover the signer from a canonical, non-malleable 65-byte
+ECDSA signature and require equality with the configured account. A signature of any
+other length MUST be rejected without attempting recovery.
 
 A registry MAY accept an empty signature when `msg.sender` is exactly the account
 whose authorization is required. It MUST NOT treat an empty signature submitted
@@ -453,6 +461,17 @@ and operational recovery procedures appropriate to the value of the Space.
 EIP-1271 validation is external code execution through `STATICCALL`. Registries
 MUST require the exact magic value, handle reverts and malformed return data, and
 complete authorization before mutating state.
+
+### Delegated accounts
+
+An account delegated under EIP-7702 carries code while its underlying key stays valid,
+so code presence alone does not separate a contract account from an externally owned
+one. Deciding validation by code presence locks out delegated accounts whose delegate
+implements no signature policy. Conversely, because delegation does not revoke the key,
+a delegate policy is not the only authorization path: a valid ECDSA signature from the
+underlying key still authorizes a transition. Deployments that rely on a delegate's
+threshold, spending, or session policy need to account for that residual path, and
+should treat key custody as equally sensitive after delegation.
 
 ### Replay and relayers
 

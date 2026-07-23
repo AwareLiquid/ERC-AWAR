@@ -34,6 +34,12 @@ contract Malformed1271Wallet {
     }
 }
 
+/// @dev Stand-in for the many EIP-7702 delegates that implement no signature policy
+///      (batch executors, session-key managers, and so on).
+contract NoPolicyDelegate {
+    uint256 public value;
+}
+
 contract AgentMemoryStateRegistryTest is Test {
     AgentMemoryStateRegistry internal registry;
 
@@ -310,6 +316,55 @@ contract AgentMemoryStateRegistryTest is Test {
             )
         );
         registry.registerSpace(bytes32(uint256(0xBAD)), other, other, OTHER_SPACE_SALT, "");
+    }
+
+    /// An EOA delegated under EIP-7702 carries code (`0xef0100 || delegate`). Branching on
+    /// code presence alone would route it into ERC-1271 and revert whenever the delegate
+    /// implements no signature policy, locking such users out entirely.
+    function test_EIP7702DelegatedEOAWithoutPolicyFallsBackToECDSA() public {
+        uint256 pk = 0x77021;
+        address delegated = vm.addr(pk);
+
+        NoPolicyDelegate delegate = new NoPolicyDelegate();
+        vm.etch(delegated, abi.encodePacked(hex"ef0100", address(delegate)));
+        assertGt(delegated.code.length, 0, "delegated account must carry code");
+
+        bytes32 salt = keccak256("7702-no-policy");
+        bytes32 spaceId = registry.deriveSpaceId(delegated, salt);
+        vm.prank(delegated);
+        registry.registerSpace(spaceId, delegated, delegated, salt, "");
+
+        IAgentMemoryState.ExperienceDelta memory delta =
+            _delta(spaceId, 1, bytes32(0), bytes32(uint256(0xAA)), bytes32(uint256(0xBB)));
+        bytes32 expectedId = registry.hashExperienceDelta(delta);
+
+        // Relayed by a third party, authorized by the delegated account's key.
+        (bytes32 transitionId,) = registry.commitTransition(delta, _sign(pk, expectedId));
+        assertEq(transitionId, expectedId);
+    }
+
+    /// A delegate that *does* implement a policy still gets to enforce it: an opaque,
+    /// non-ECDSA signature is accepted only through ERC-1271.
+    function test_EIP7702DelegatedEOAWithPolicyUsesERC1271() public {
+        uint256 pk = 0x77022;
+        address delegated = vm.addr(pk);
+
+        Mock1271Wallet wallet = new Mock1271Wallet();
+        vm.etch(delegated, address(wallet).code);
+
+        bytes32 salt = keccak256("7702-with-policy");
+        bytes32 spaceId = registry.deriveSpaceId(delegated, salt);
+        vm.prank(delegated);
+        registry.registerSpace(spaceId, delegated, delegated, salt, "");
+
+        IAgentMemoryState.ExperienceDelta memory delta =
+            _delta(spaceId, 1, bytes32(0), bytes32(uint256(0xCC)), bytes32(uint256(0xDD)));
+        bytes32 expectedId = registry.hashExperienceDelta(delta);
+
+        Mock1271Wallet(delegated).approve(registry.signingDigest(expectedId));
+
+        (bytes32 transitionId,) = registry.commitTransition(delta, hex"c0ffee");
+        assertEq(transitionId, expectedId);
     }
 
     function _expectInvalidContractRegistration(address wallet, bytes32 salt) internal {

@@ -264,7 +264,14 @@
     </div>
 
     <h3><span class="h3n">1.4</span>What a bare content hash fails to establish</h3>
-    <p>A hash alone does not establish: <strong>(1)</strong> which state it advances; <strong>(2)</strong> whether it is the unique successor; <strong>(3)</strong> who controls the namespace and may authorize updates; <strong>(4)</strong> whether all meaningful references were signed; <strong>(5)</strong> whether independent implementations derive the same identifier. Agent Memory State v1 answers all five in one interoperable state machine.</p>
+    <p>A hash alone does not establish: <strong>(1)</strong> which state it advances; <strong>(2)</strong> whether it is the unique successor; <strong>(3)</strong> who controls the namespace and may authorize updates; <strong>(4)</strong> whether all meaningful references were signed; <strong>(5)</strong> whether independent implementations derive the same identifier.</p>
+
+    <div class="callout warn">
+      <div class="c-lab">What is — and is not — novel here</div>
+      <p><strong>Committing a digest instead of the data is not novel.</strong> It is established practice across ERC-8004, ERC-7857, ERC-8257, ERC-8273, ERC-8299, and EAS. The thesis above states a <em>constraint the design must satisfy</em> — it is not the contribution. The unresolved part sits one level up: <strong>nothing specifies how one commitment must relate to the one before it.</strong> Anchoring is solved; <em>sequencing</em> is not.</p>
+    </div>
+
+    <p>Enforcing <code>sequence == current + 1</code> together with <code>prevStateRoot == currentStateRoot</code> is what lets a third party detect an operator quietly rolling a Space back and replaying forward, two contradictory histories grown in parallel under one identity, a gap where transitions were dropped, or a relayer substituting a locator the signature was supposed to cover. <strong>A flat anchor cannot distinguish any of these from normal operation.</strong> Agent Memory State v1 answers all five points above in one interoperable state machine.</p>
   </section>
 
   <section id="s2">
@@ -431,6 +438,21 @@ locatorCommitment    = <span class="kw">keccak256</span>(abi.encode(LOCATOR_DOMA
 
     <h3><span class="h3n">5.6</span>Migration</h3>
     <p>Migrating from v0 means creating a <strong>new v1 space</strong> with a private migration payload documenting the v0 export, identifiers, tooling, and audit; the original chain is untouched. v0’s JCS identifiers, unsigned URIs, and fixed enums are explicitly <strong>not</strong> wire-compatible — a clean break beats false compatibility carrying baggage.</p>
+
+    <h3><span class="h3n">5.7</span>Relationship to existing agent standards</h3>
+    <p>Agent-related ERCs are numerous as of mid-2026, and several touch memory. Stating the boundary plainly matters more than claiming novelty:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Proposal</th><th>What it covers</th><th>What is still missing</th></tr></thead>
+      <tbody>
+        <tr><td><strong>ERC-8004</strong> Trustless Agents</td><td>Identity / Reputation / Validation registries</td><td>Explicitly does not cover memory, persistent state, or cognition</td></tr>
+        <tr><td><strong>ERC-8181</strong> Self-Sovereign Agent NFTs</td><td>A State Anchor over off-chain cognitive state</td><td>The anchor is flat — no <code>prevStateRoot</code>, no <code>sequence</code>, no unique-successor rule, and <code>contentUri</code> is unsigned</td></tr>
+        <tr><td><strong>ERC-8264</strong> AI Agent Memory Access Rights</td><td>Data-subject rights over memory records, GDPR framing</td><td>Rights <em>over records</em>, not the evolution of state <em>between</em> them</td></tr>
+        <tr><td><strong>ERC-8269</strong> Body Lease / Capsule</td><td>Merkle root over payload hashes within one capsule</td><td>Integrity <em>within</em> a capsule, not a chain <em>across time</em></td></tr>
+        <tr><td><strong>ERC-7857</strong> (Final)</td><td>Ownership transfer with sealed keys and access proofs</td><td>The <em>moment</em> of transfer, not the <em>process</em> of evolution</td></tr>
+      </tbody>
+    </table></div>
+    <p>A reasonable question is whether the Ethereum Attestation Service already covers this: it offers <code>refUID</code> linking, Private Data Attestations with Merkle multiproofs, and resolvers for arbitrary validation. What it does not offer is <strong>successor uniqueness</strong> — in <code>EAS.sol</code> the only check on <code>refUID</code> is that the referenced attestation <em>exists</em>, so several attestations may reference the same one and the protocol layer permits forking. No sequence number, no prior-state binding, no per-namespace controller/authorizer model. These semantics <em>can</em> be built with a schema plus a custom resolver, but that yields a per-application implementation rather than an interoperable standard.</p>
+    <p>The intent throughout is that this protocol can be referenced by any of the proposals above <strong>without any of them taking a dependency on it</strong>.</p>
   </section>
 
   <section id="s6">
@@ -458,12 +480,12 @@ locatorCommitment    = <span class="kw">keccak256</span>(abi.encode(LOCATOR_DOMA
     <div class="sec-head"><span class="sec-num">§8</span><h2>Open questions — request for feedback</h2></div>
     <p>Feedback is invited on the Ethereum Magicians thread. The questions we most want the community’s input on:</p>
     <ol class="qlist">
-      <li><strong>Linearity.</strong> Is a strictly linear per-space state machine the right base primitive, or should the core admit a minimal branch/merge notion (at the cost of auditability)?</li>
+      <li><strong>Linearity.</strong> This protocol enforces a strictly linear per-space history, and we believe that is the right base primitive: it is precisely what makes “no gap, no silent rollback, no contradictory parallel history” checkable by a third party. Concurrency belongs in multiple spaces plus off-chain merge. Is there a concrete agent workload where that is the wrong call?</li>
       <li><strong>Baseline commitments.</strong> Is the domain-separated keccak baseline an acceptable normative floor, with ZK schemes as opt-in profiles? Should the ERC mandate encryption for any low-entropy payload rather than merely a secret salt?</li>
-      <li><strong>EIP-1271 edge cases.</strong> Which authorizer-contract behaviors (reverts, malformed returns, <code>STATICCALL</code> gas griefing) should the spec call out more forcefully?</li>
-      <li><strong>profileId governance.</strong> Should there be any registry-level convention for profile identifiers, or is fully application-defined the right long-term stance?</li>
+      <li><strong>EIP-1271 / EIP-7702 edge cases.</strong> Is “try ERC-1271, then fall back to canonical ECDSA” the right ordering? It lets a delegate policy apply where one exists, but since delegation does not revoke the key, the ECDSA path always remains. Should a registry be allowed to disable that fallback per space? And which authorizer behaviors (reverts, malformed returns, <code>STATICCALL</code> gas griefing) should the spec call out more forcefully?</li>
+      <li><strong>profileId governance.</strong> Should there be any registry-level convention for profile identifiers, or is fully application-defined the right long-term stance? Note that an unsalted <code>profileId</code> drawn from a published vocabulary is effectively public — ADR-0005 now documents it as such.</li>
       <li><strong>Deletion semantics.</strong> Is “attestation with a stated scope” the right framing, and should the core reference it normatively or stay silent?</li>
-      <li><strong>Observation time.</strong> Is recording <code>block.timestamp</code> as observation time (never as ordering input) sufficient?</li>
+      <li><strong>Discoverability layering.</strong> A space is deliberately opaque, which also makes it undiscoverable — including to a would-be licensee. Should minimal descriptive metadata live in an optional extension (the approach taken in ADR-0005), or does the core need a hook? Note the tension: <code>profileId</code> is simultaneously the one deliberate privacy leak and the one available discovery handle.</li>
       <li><strong>Naming.</strong> Is “Agent Memory State” the right title, or should it lead with “Commitments” / “Registry” to set expectations about the non-claim?</li>
     </ol>
   </section>

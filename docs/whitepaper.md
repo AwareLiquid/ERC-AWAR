@@ -113,10 +113,28 @@ does not establish:
 4. whether **all externally meaningful references** were signed; or
 5. whether **independent implementations** derive the same transition identifier.
 
+It is worth being precise about what is and is not new here, because the obvious reading
+is the wrong one. **Committing a digest instead of the data is not novel.** It is
+established practice across ERC-8004, ERC-7857, ERC-8257, ERC-8273, ERC-8299, and EAS.
+The thesis in §1.3 states a constraint the design must satisfy — it is not the
+contribution.
+
+The unresolved part sits one level up: **nothing specifies how one commitment must
+relate to the one before it.** Anchoring is solved; *sequencing* is not. A published
+anchor does not establish that it is the unique successor of the previous state, that
+nothing was skipped or silently rolled back, or that the reference it points at was
+covered by the signature. Without those rules a memory history is a bag of hashes, not
+a trajectory.
+
 Agent Memory State v1 answers all five in a single, interoperable state machine — with
 deterministic hashing, strict sequence and state-root validation, an explicit
 controller/authorizer model, and a rule that *signatures must cover every field,
-including the locator commitment*.
+including the locator commitment*. Concretely, enforcing `sequence == current + 1`
+together with `prevStateRoot == currentStateRoot` is what lets a third party detect an
+operator quietly rolling a Space back and replaying forward, two contradictory histories
+grown in parallel under one identity, a gap where transitions were dropped, or a relayer
+substituting a locator the signature was supposed to cover. A flat anchor cannot
+distinguish any of these from normal operation.
 
 ---
 
@@ -515,6 +533,32 @@ original chain is left unchanged. v0's JCS identifiers, unsigned URIs, and fixed
 are explicitly **not** wire-compatible with v1 — a clean break beats a false-compatible
 one carrying historical baggage.
 
+### 5.7 Relationship to existing agent standards
+
+Agent-related ERCs are numerous as of mid-2026, and several touch memory. Stating the
+boundary plainly matters more than claiming novelty:
+
+| Proposal | What it covers | What is still missing |
+|---|---|---|
+| **ERC-8004** Trustless Agents | Identity / Reputation / Validation registries | Explicitly does not cover memory, persistent state, or cognition |
+| **ERC-8181** Self-Sovereign Agent NFTs | A State Anchor over off-chain cognitive state | The anchor is flat — no `prevStateRoot`, no `sequence`, no unique-successor rule, and `contentUri` is an unsigned argument a relayer can swap |
+| **ERC-8264** AI Agent Memory Access Rights | Data-subject rights over memory records (read / write / delete / export), GDPR framing | Rights *over records*, not the verifiable evolution of state *between* them |
+| **ERC-8269** Body Lease / Capsule | Packaging: a Merkle root over payload hashes within one capsule | Integrity *within* a capsule, not a chain of transitions *across time* |
+| **ERC-7857** (Final) AI Agents NFT with Private Metadata | Ownership transfer with sealed keys and access proofs | The *moment* of transfer, not the *process* of state evolution |
+
+A reasonable question is whether the [Ethereum Attestation Service](https://attest.org)
+already covers this: it offers `refUID` linking, Private Data Attestations with Merkle
+multiproofs for selective disclosure, and resolvers for arbitrary validation. What it
+does not offer is **successor uniqueness** — in `EAS.sol` the only check applied to
+`refUID` is that the referenced attestation exists, so several attestations may
+reference the same one and the protocol layer permits forking. There is no sequence
+number, no prior-state binding, and no per-namespace controller/authorizer model. These
+semantics *can* be built with an EAS schema plus a custom resolver, but that yields a
+per-application implementation rather than an interoperable standard.
+
+The intent throughout is that this protocol can be referenced by any of the proposals
+above without any of them taking a dependency on it.
+
 ---
 
 ## 6. Miscellanea and concerns
@@ -581,23 +625,32 @@ This is the starting point for the trust layer of the agent economy.
 Feedback is invited on the Ethereum Magicians thread. Specific questions we would most
 like the community's input on:
 
-1. **Linearity.** Is a strictly linear per-space state machine the right base
-   primitive, or should the core admit a minimal branching/merge notion (at the cost of
-   auditability)? We currently push concurrency to multiple spaces + off-chain merge.
+1. **Linearity.** This protocol enforces a strictly linear per-space history, and we
+   believe that is the right base primitive: it is precisely what makes "no gap, no
+   silent rollback, no contradictory parallel history" checkable by a third party.
+   Concurrency belongs in multiple spaces plus off-chain merge. Is there a concrete
+   agent workload where that is the wrong call?
 2. **Baseline commitment scheme.** Is the domain-separated keccak baseline
    (§3.5) an acceptable normative floor, with ZK/stronger schemes as opt-in profiles?
    Should the ERC mandate encryption for any low-entropy payload rather than merely a
    secret salt?
-3. **EIP-1271 edge cases.** Are there authorizer-contract behaviors (reverts,
-   malformed returns, gas griefing via `STATICCALL`) the spec should call out more
-   forcefully?
+3. **EIP-1271 / EIP-7702 edge cases.** Is "try ERC-1271, then fall back to canonical
+   ECDSA" the right ordering? It lets a delegate policy apply where one exists, but
+   since delegation does not revoke the key, the ECDSA path always remains. Should a
+   registry be allowed to disable that fallback per space? And are there authorizer
+   behaviors (reverts, malformed returns, `STATICCALL` gas griefing) the spec should
+   call out more forcefully?
 4. **`profileId` governance.** Should there be *any* registry-level convention for
    profile identifiers, or is keeping them entirely application-defined the correct
-   long-term stance?
+   long-term stance? Note that an unsalted `profileId` drawn from a published
+   vocabulary is effectively public — ADR-0005 now documents it as such.
 5. **Deletion semantics.** Is "attestation with a stated scope" the right framing for a
    deletion extension, and should the core reference it normatively or stay silent?
-6. **Observation time.** Is recording `block.timestamp` as observation time (never as
-   an ordering input) sufficient, or do applications need a stronger notion of time?
+6. **Discoverability layering.** A space is deliberately opaque, which also makes it
+   undiscoverable — including to a would-be licensee. Should minimal descriptive
+   metadata live in an optional extension (the approach taken in ADR-0005), or does the
+   core need a hook? Note the tension: `profileId` is simultaneously the one deliberate
+   privacy leak and the one available discovery handle.
 7. **Naming.** Is "Agent Memory State" the right title for the ERC, or should it lead
    with "Commitments" / "Registry" to set expectations about the non-claim (§4.1)?
 

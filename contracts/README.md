@@ -20,6 +20,16 @@ would place its private inputs in calldata.
 
 `src/extensions/DeletionAttestation.sol` stores one scoped evidence commitment.
 It is intentionally named an attestation and does not claim universal erasure.
+It takes a `bytes32` commitment, never raw evidence bytes.
+
+`src/extensions/SpaceDescriptor.sol` lets a controller optionally publish what a Space
+is — domain, purpose, and the profile vocabulary needed to read its `profileId` values.
+It never describes Space contents, and publishing is voluntary.
+
+`src/extensions/AuditGrant.sol` commits to the complete ordered witness set for a
+`[fromSequence, toSequence]` range before disclosure, so an incomplete or substituted
+disclosure fails to fold to the committed root. `foldWitnessRoot` is exposed so
+off-chain verifiers fold identically. See `docs/adr/0005-metadata-layers-and-auditability.md`.
 
 ## Experimental
 

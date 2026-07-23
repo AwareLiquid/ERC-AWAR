@@ -287,6 +287,21 @@ contract AgentMemoryStateRegistry is IAgentMemoryState {
         if (space.controller == address(0)) revert UnknownSpace();
     }
 
+    /// @dev Authorization accepts, in order: a direct call by the signer, an ERC-1271
+    ///      signature, then a canonical ECDSA signature.
+    ///
+    ///      Code presence is deliberately NOT used to pick exactly one branch. An EOA
+    ///      delegated under EIP-7702 has non-empty code (`0xef0100 || delegate`), so
+    ///      branching on `code.length` alone would route every 7702 account into
+    ///      ERC-1271 and revert for the many delegates that implement no signature
+    ///      policy. Trying ERC-1271 first still lets a delegate that *does* implement a
+    ///      policy enforce it; the ECDSA fallback then covers plain EOAs and 7702
+    ///      accounts whose delegate is signature-agnostic.
+    ///
+    ///      Security note: delegation does not revoke the underlying key, so for a 7702
+    ///      account a valid ECDSA signature authorizes even when the delegate's policy
+    ///      would have rejected it. That is a property of EIP-7702 itself, not of this
+    ///      registry, but deployments relying on a delegate policy must account for it.
     function _requireAuthorization(
         address signer,
         bytes32 digest,
@@ -294,17 +309,26 @@ contract AgentMemoryStateRegistry is IAgentMemoryState {
         bool allowDirectCall
     ) private view {
         if (allowDirectCall && msg.sender == signer && signature.length == 0) return;
-        if (signer.code.length == 0) {
-            if (ECDSA.recover(digest, signature) != signer) revert InvalidAuthorization();
+
+        if (signer.code.length != 0 && _isValidERC1271Signature(signer, digest, signature)) {
             return;
         }
 
+        // Guard the length before recovering: `ECDSA.recover` reverts on any size other
+        // than 65, which would otherwise abort the transaction instead of falling back.
+        if (signature.length != 65) revert InvalidAuthorization();
+        if (ECDSA.recover(digest, signature) != signer) revert InvalidAuthorization();
+    }
+
+    function _isValidERC1271Signature(address signer, bytes32 digest, bytes calldata signature)
+        private
+        view
+        returns (bool)
+    {
         (bool success, bytes memory result) =
             signer.staticcall(abi.encodeCall(IERC1271.isValidSignature, (digest, signature)));
-        if (!success || result.length < 32 || abi.decode(result, (bytes4)) != _ERC1271_MAGIC_VALUE)
-        {
-            revert InvalidAuthorization();
-        }
+        return success && result.length >= 32
+            && abi.decode(result, (bytes4)) == _ERC1271_MAGIC_VALUE;
     }
 
     function _digest(bytes32 structHash) private view returns (bytes32) {

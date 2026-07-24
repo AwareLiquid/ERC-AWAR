@@ -14,3 +14,11 @@ evm_version = "cancun"
 line_length = 100
 tab_width = 4
 bracket_spacing = false
+
+# Read from the environment so no endpoint or API key is committed.
+# See docs/deployment.md — deployer keys are never stored in this repository.
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+sepolia = {key = "${ETHERSCAN_API_KEY}", chain = 11155111}
